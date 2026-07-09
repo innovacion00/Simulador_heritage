@@ -1,26 +1,59 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-arena: #f6f0e4;
+  --color-arena-dark: #ece1cc;
+  --color-navy: #0d2438;
+  --color-navy-deep: #081729;
+  --color-navy-soft: #1c3a54;
+  --color-gold: #c6a15b;
+  --color-gold-light: #e4c98b;
+  --color-copper: #b5723a;
+  --color-pesimista: #b5723a;
+  --color-conservador: #c6a15b;
+  --color-optimista: #2f6d5c;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-arena: var(--color-arena);
+  --color-arena-dark: var(--color-arena-dark);
+  --color-navy: var(--color-navy);
+  --color-navy-deep: var(--color-navy-deep);
+  --color-navy-soft: var(--color-navy-soft);
+  --color-gold: var(--color-gold);
+  --color-gold-light: var(--color-gold-light);
+  --color-copper: var(--color-copper);
+  --color-pesimista: var(--color-pesimista);
+  --color-conservador: var(--color-conservador);
+  --color-optimista: var(--color-optimista);
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+.font-serif-display {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+/* Count-up number animation feel: smooth transitions on any number change */
+.num-transition {
+  transition: color 0.3s ease;
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-navy-deep);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-gold);
+  border-radius: 999px;
 }
