@@ -72,7 +72,7 @@ export const ADR: Record<Escenario, Record<Tipologia, Record<Anio, number>>> = {
   },
   conservador: {
     "1hab": { 1: 528_000, 2: 554_400, 3: 582_120 },
-    "2hab": { 1: 605_000, 2: 635_250, 3: 667_013 },
+    "2hab": { 1: 605_000, 2: 635_250, 3: 667_012.5 },
   },
   optimista: {
     "1hab": { 1: 633_600, 2: 665_280, 3: 698_544 },
@@ -107,6 +107,26 @@ export const MARGEN_NETO: Record<Escenario, Record<Anio, number>> = {
   conservador: { 1: 0.1647, 2: 0.1887, 3: 0.2088 },
   optimista: { 1: 0.2596, 2: 0.2717, 3: 0.2822 },
 };
+
+// Gastos operativos fijos (COP) — filas de la hoja HERITAGE que componen "TOTAL GASTOS"
+// junto con Comisión OTA, Fondo FARA, Marketing y Comisión Smart Stay (estas últimas 4 son
+// % de ventas y varían por escenario, ver ADVANCED_PARAMS_DEFAULT / MARKETING_PCT).
+// Estas partidas NO varían por escenario, solo por año (inflación de costos 5%/año).
+export const GASTOS_FIJOS_ANUAL = {
+  nomina: { 1: 1_202_340_000, 2: 1_262_457_000, 3: 1_325_579_850 },
+  bolsaEmpleo: { 1: 120_234_000, 2: 126_245_700, 3: 132_557_985 },
+  serviciosPublicos: { 1: 492_000_000, 2: 516_600_000, 3: 542_430_000 },
+  tecnologia: { 1: 72_000_000, 2: 75_600_000, 3: 79_380_000 },
+  operacionSuministros: { 1: 396_000_000, 2: 415_800_000, 3: 436_590_000 },
+  domotica: { 1: 0, 2: 0, 3: 0 },
+  cuotaAdministracion: { 1: 648_000_000, 2: 680_400_000, 3: 714_420_000 },
+  seguroResponsabilidadCivil: { 1: 36_000_000, 2: 37_800_000, 3: 39_690_000 },
+  honorariosContables: { 1: 84_000_000, 2: 88_200_000, 3: 92_610_000 },
+  revisoriaFiscal: { 1: 36_000_000, 2: 37_800_000, 3: 39_690_000 },
+  otrosGastosOperativos: { 1: 384_000_000, 2: 403_200_000, 3: 423_360_000 },
+  segurosYLicencias: { 1: 240_000_000, 2: 252_000_000, 3: 264_600_000 },
+  feeBase: { 1: 544_320_000, 2: 571_536_000, 3: 600_112_800 },
+} as const satisfies Record<string, Record<Anio, number>>;
 
 // Utilidad Neta por unidad — Año 3 (maduración), tal como reporta el modelo
 export const UTILIDAD_POR_UNIDAD_ANIO3: Record<Escenario, Record<Tipologia, number>> = {

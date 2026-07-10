@@ -16,7 +16,7 @@ import {
 import { AdvancedParams, Anio, ESCENARIOS, Escenario } from "@/lib/data";
 import { DesglosePYG, Moneda, TipologiaSeleccion, calcularDesglose, formatCompact, formatMoney } from "@/lib/calculations";
 
-const COST_COLORS = ["#3fa4dd", "#c6a15b", "#b5723a", "#2f6d5c"];
+const COST_COLORS = ["#3fa4dd", "#c6a15b", "#8a6d3b", "#b5723a", "#2f6d5c"];
 const ESCENARIO_COLORS: Record<Escenario, string> = {
   pesimista: "var(--color-pesimista)",
   conservador: "var(--color-conservador)",
@@ -65,11 +65,27 @@ function IngresosGastosUtilidadChart({
 }
 
 function CostDistributionDonut({ desglose, moneda, tasaCambio }: { desglose: DesglosePYG; moneda: Moneda; tasaCambio: number }) {
+  const gastosFijos =
+    desglose.nomina +
+    desglose.bolsaEmpleo +
+    desglose.serviciosPublicos +
+    desglose.tecnologia +
+    desglose.operacionSuministros +
+    desglose.domotica +
+    desglose.cuotaAdministracion +
+    desglose.seguroResponsabilidadCivil +
+    desglose.honorariosContables +
+    desglose.revisoriaFiscal +
+    desglose.otrosGastosOperativos +
+    desglose.segurosYLicencias +
+    desglose.feeBase;
+
   const data = [
     { name: "Comisión OTAs", value: desglose.comisionOTA },
     { name: "Fondo FARA", value: desglose.fondoFARA },
+    { name: "Marketing", value: desglose.marketing },
     { name: "Comisión Smart Stay", value: desglose.comisionSmartStay },
-    { name: "Otros gastos operativos", value: desglose.otrosGastosOperativos },
+    { name: "Gastos fijos (nómina, admin, servicios...)", value: gastosFijos },
   ].filter((d) => d.value > 0);
 
   return (
@@ -99,15 +115,27 @@ function RentabilidadPorEscenarioChart({
   nUnidades,
   montoInvertido,
   advancedParams,
+  diasEfectivos,
+  ocupacionPorEscenario,
 }: {
   tipologia: TipologiaSeleccion;
   anio: Anio;
   nUnidades: number;
   montoInvertido: number;
   advancedParams: AdvancedParams;
+  diasEfectivos: number;
+  ocupacionPorEscenario: Record<Escenario, number>;
 }) {
   const data = ESCENARIOS.map((e) => {
-    const desglose = calcularDesglose({ escenario: e.id, tipologia, anio, nUnidades, advancedParams });
+    const desglose = calcularDesglose({
+      escenario: e.id,
+      tipologia,
+      anio,
+      nUnidades,
+      advancedParams,
+      diasEfectivos,
+      ocupacion: ocupacionPorEscenario[e.id],
+    });
     const roi = montoInvertido > 0 ? desglose.utilidadNeta / montoInvertido : 0;
     return { name: e.label, value: roi * 100, fill: ESCENARIO_COLORS[e.id] };
   });
@@ -138,6 +166,8 @@ export function ChartsSection({
   nUnidades,
   montoInvertido,
   advancedParams,
+  diasEfectivos,
+  ocupacionPorEscenario,
   moneda,
   tasaCambio,
 }: {
@@ -147,6 +177,8 @@ export function ChartsSection({
   nUnidades: number;
   montoInvertido: number;
   advancedParams: AdvancedParams;
+  diasEfectivos: number;
+  ocupacionPorEscenario: Record<Escenario, number>;
   moneda: Moneda;
   tasaCambio: number;
 }) {
@@ -166,6 +198,8 @@ export function ChartsSection({
         nUnidades={nUnidades}
         montoInvertido={montoInvertido}
         advancedParams={advancedParams}
+        diasEfectivos={diasEfectivos}
+        ocupacionPorEscenario={ocupacionPorEscenario}
       />
     </div>
   );

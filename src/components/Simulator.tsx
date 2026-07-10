@@ -9,6 +9,7 @@ import {
   Escenario,
   OCUPACION,
   TASA_CAMBIO_REFERENCIA,
+  UNIDADES_TOTALES,
 } from "@/lib/data";
 import {
   Moneda,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/calculations";
 import { AdvancedParamsPanel } from "./AdvancedParamsPanel";
 import { StatTile } from "./StatTile";
+import { OperationalVariablesSummary } from "./OperationalVariablesSummary";
 import { DetailedFinancialTable } from "./DetailedFinancialTable";
 import { ScenarioComparatorCards } from "./ScenarioComparatorCards";
 import { ChartsSection } from "./ChartsSection";
@@ -29,8 +31,12 @@ import { IconBuilding, IconDollar, IconPercent, IconReceipt, IconTrendUp, IconWa
 const TIPOLOGIA_OPTS: { id: TipologiaSeleccion; label: string }[] = [
   { id: "1hab", label: "1 Habitación" },
   { id: "2hab", label: "2 Habitaciones" },
-  { id: "mixto", label: "Mixto (1 y 2 Hab)" },
+  { id: "mixto", label: "Proyecto completo" },
 ];
+
+const PRECIO_MIN = 200_000_000;
+const PRECIO_MAX = 900_000_000;
+const PRECIO_STEP = 5_000_000;
 
 const ANIOS: { id: Anio; label: string }[] = [
   { id: 1, label: "Año 1" },
@@ -76,19 +82,49 @@ export function Simulator() {
   const [advancedParams, setAdvancedParams] = useState(ADVANCED_PARAMS_DEFAULT);
   const [moneda, setMoneda] = useState<Moneda>("COP");
   const [tasaCambio, setTasaCambio] = useState(TASA_CAMBIO_REFERENCIA);
+  const [precioUnidad, setPrecioUnidad] = useState(() => precioReferencia("1hab"));
+  const [diasEfectivos, setDiasEfectivos] = useState(DIAS_EFECTIVOS);
+  const [ocupacionOverrides, setOcupacionOverrides] = useState<
+    Partial<Record<Escenario, Partial<Record<Anio, number>>>>
+  >({});
+  const [tipologiaAnterior, setTipologiaAnterior] = useState(tipologia);
 
-  const precioUnidad = precioReferencia(tipologia);
+  const esProyectoCompleto = tipologia === "mixto";
+
+  const getOcupacion = (esc: Escenario, an: Anio): number => ocupacionOverrides[esc]?.[an] ?? OCUPACION[esc][an];
+
+  const setOcupacion = (esc: Escenario, an: Anio, valor: number) =>
+    setOcupacionOverrides((prev) => ({ ...prev, [esc]: { ...prev[esc], [an]: valor } }));
+
+  const ocupacionActual = getOcupacion(escenario, anio);
+  const ocupacionPorEscenario: Record<Escenario, number> = {
+    pesimista: getOcupacion("pesimista", anio),
+    conservador: getOcupacion("conservador", anio),
+    optimista: getOcupacion("optimista", anio),
+  };
+
+  // Al cambiar de tipología, se reinicia el precio de referencia a su valor base
+  // (el usuario puede seguir ajustándolo con la barra deslizante).
+  if (tipologia !== tipologiaAnterior) {
+    setTipologiaAnterior(tipologia);
+    setPrecioUnidad(precioReferencia(tipologia));
+    if (tipologia === "mixto") {
+      setInputMode("unidades");
+    }
+  }
 
   const unidadesEfectivas = useMemo(() => {
+    if (esProyectoCompleto) return UNIDADES_TOTALES;
     if (inputMode === "unidades") return nUnidades;
     const monto = Number(montoTexto.replace(/[^\d]/g, "")) || 0;
     return Math.max(Math.round(monto / precioUnidad), 0);
-  }, [inputMode, nUnidades, montoTexto, precioUnidad]);
+  }, [esProyectoCompleto, inputMode, nUnidades, montoTexto, precioUnidad]);
 
   const montoInvertido = useMemo(() => {
+    if (esProyectoCompleto) return UNIDADES_TOTALES * precioUnidad;
     if (inputMode === "monto") return Number(montoTexto.replace(/[^\d]/g, "")) || 0;
     return nUnidades * precioUnidad;
-  }, [inputMode, montoTexto, nUnidades, precioUnidad]);
+  }, [esProyectoCompleto, inputMode, montoTexto, nUnidades, precioUnidad]);
 
   const resultado = useMemo(
     () =>
@@ -100,8 +136,22 @@ export function Simulator() {
         montoInvertido,
         incluirFara,
         advancedParams,
+        diasEfectivos,
+        ocupacion: ocupacionActual,
+        ocupacionAnio3: ocupacionOverrides[escenario]?.[3] ?? OCUPACION[escenario][3],
       }),
-    [escenario, tipologia, anio, unidadesEfectivas, montoInvertido, incluirFara, advancedParams]
+    [
+      escenario,
+      tipologia,
+      anio,
+      unidadesEfectivas,
+      montoInvertido,
+      incluirFara,
+      advancedParams,
+      diasEfectivos,
+      ocupacionActual,
+      ocupacionOverrides,
+    ]
   );
 
   const { desglose } = resultado;
@@ -160,61 +210,76 @@ export function Simulator() {
 
             <div className="grid sm:grid-cols-2 gap-5">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
-                    {inputMode === "unidades" ? "N° de unidades" : "Monto a invertir"}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setInputMode(inputMode === "unidades" ? "monto" : "unidades")}
-                    className="text-xs text-copper font-medium underline underline-offset-2"
-                  >
-                    Usar {inputMode === "unidades" ? "monto en COP" : "N° de unidades"}
-                  </button>
-                </div>
-
-                {inputMode === "unidades" ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Restar unidad"
-                      onClick={() => setNUnidades((n) => Math.max(1, n - 1))}
-                      className="h-11 w-11 shrink-0 rounded-xl bg-navy text-arena text-xl font-medium active:scale-95 transition-transform"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="range"
-                      min={1}
-                      max={20}
-                      value={nUnidades}
-                      onChange={(e) => setNUnidades(Number(e.target.value))}
-                      className="flex-1 accent-copper h-2"
-                    />
-                    <button
-                      type="button"
-                      aria-label="Sumar unidad"
-                      onClick={() => setNUnidades((n) => Math.min(20, n + 1))}
-                      className="h-11 w-11 shrink-0 rounded-xl bg-navy text-arena text-xl font-medium active:scale-95 transition-transform"
-                    >
-                      +
-                    </button>
-                    <span className="w-8 text-center font-semibold text-navy">{nUnidades}</span>
-                  </div>
+                {esProyectoCompleto ? (
+                  <>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50 mb-2">
+                      N° de unidades
+                    </label>
+                    <div className="rounded-xl bg-navy/5 px-4 py-3 text-navy font-medium">
+                      {UNIDADES_TOTALES} unidades · proyecto completo
+                    </div>
+                  </>
                 ) : (
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Ej: 900.000.000"
-                    value={montoTexto}
-                    onChange={(e) => setMontoTexto(e.target.value)}
-                    className="w-full rounded-xl border border-navy/15 bg-white px-4 py-3 text-navy font-medium focus:outline-none focus:ring-2 focus:ring-copper"
-                  />
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
+                        {inputMode === "unidades" ? "N° de unidades" : "Monto a invertir"}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setInputMode(inputMode === "unidades" ? "monto" : "unidades")}
+                        className="text-xs text-copper font-medium underline underline-offset-2"
+                      >
+                        Usar {inputMode === "unidades" ? "monto en COP" : "N° de unidades"}
+                      </button>
+                    </div>
+
+                    {inputMode === "unidades" ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label="Restar unidad"
+                          onClick={() => setNUnidades((n) => Math.max(1, n - 1))}
+                          className="h-11 w-11 shrink-0 rounded-xl bg-navy text-arena text-xl font-medium active:scale-95 transition-transform"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="range"
+                          min={1}
+                          max={20}
+                          value={nUnidades}
+                          onChange={(e) => setNUnidades(Number(e.target.value))}
+                          className="flex-1 accent-copper h-2"
+                        />
+                        <button
+                          type="button"
+                          aria-label="Sumar unidad"
+                          onClick={() => setNUnidades((n) => Math.min(20, n + 1))}
+                          className="h-11 w-11 shrink-0 rounded-xl bg-navy text-arena text-xl font-medium active:scale-95 transition-transform"
+                        >
+                          +
+                        </button>
+                        <span className="w-8 text-center font-semibold text-navy">{nUnidades}</span>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Ej: 900.000.000"
+                        value={montoTexto}
+                        onChange={(e) => setMontoTexto(e.target.value)}
+                        className="w-full rounded-xl border border-navy/15 bg-white px-4 py-3 text-navy font-medium focus:outline-none focus:ring-2 focus:ring-copper"
+                      />
+                    )}
+                  </>
                 )}
                 <p className="text-xs text-navy/45 mt-2">
-                  {inputMode === "unidades"
+                  {esProyectoCompleto
                     ? `≈ ${money(montoInvertido)} · referencia ${money(precioUnidad)}/unidad`
-                    : `≈ ${unidadesEfectivas} unidad${unidadesEfectivas === 1 ? "" : "es"} · referencia ${money(precioUnidad)}/unidad`}
+                    : inputMode === "unidades"
+                      ? `≈ ${money(montoInvertido)} · referencia ${money(precioUnidad)}/unidad`
+                      : `≈ ${unidadesEfectivas} unidad${unidadesEfectivas === 1 ? "" : "es"} · referencia ${money(precioUnidad)}/unidad`}
                 </p>
               </div>
 
@@ -246,17 +311,80 @@ export function Simulator() {
             </div>
 
             <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
+                  Precio de referencia por unidad
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setPrecioUnidad(precioReferencia(tipologia))}
+                  className="text-xs text-copper font-medium underline underline-offset-2"
+                >
+                  Restablecer
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={PRECIO_MIN}
+                  max={PRECIO_MAX}
+                  step={PRECIO_STEP}
+                  value={precioUnidad}
+                  onChange={(e) => setPrecioUnidad(Number(e.target.value))}
+                  className="flex-1 accent-copper h-2"
+                />
+                <span className="w-32 shrink-0 text-right font-semibold text-navy text-sm">
+                  {money(precioUnidad)}
+                </span>
+              </div>
+              <p className="text-xs text-navy/45 mt-2">
+                Ajusta el valor de venta de referencia por unidad para tu simulación
+                {esProyectoCompleto ? " (afecta la inversión total del proyecto)." : "."}
+              </p>
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50 mb-2">
                 Escenario de ocupación
               </label>
               <SegmentedControl
                 options={ESCENARIOS.map((e) => ({
                   id: e.id,
-                  label: `${e.label} · ${formatPct(OCUPACION[e.id][anio], 0)}`,
+                  label: `${e.label} · ${formatPct(getOcupacion(e.id, anio), 0)}`,
                 }))}
                 value={escenario}
                 onChange={setEscenario}
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
+                  % Ocupación — {ESCENARIOS.find((e) => e.id === escenario)?.label} ·{" "}
+                  {ANIOS.find((a) => a.id === anio)?.label}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setOcupacion(escenario, anio, OCUPACION[escenario][anio])}
+                  className="text-xs text-copper font-medium underline underline-offset-2"
+                >
+                  Restablecer
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round(ocupacionActual * 100)}
+                  onChange={(e) => setOcupacion(escenario, anio, Number(e.target.value) / 100)}
+                  className="flex-1 accent-copper h-2"
+                />
+                <span className="w-14 shrink-0 text-right font-semibold text-navy text-sm">
+                  {formatPct(ocupacionActual, 0)}
+                </span>
+              </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-5">
@@ -267,11 +395,31 @@ export function Simulator() {
                 <SegmentedControl options={ANIOS} value={anio} onChange={setAnio} />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50 mb-2">
-                  Días efectivos de operación al año
-                </label>
-                <div className="rounded-xl bg-navy/5 px-4 py-3 text-navy/60 text-sm">
-                  {DIAS_EFECTIVOS} días · fijo en el modelo operativo de Smart Stay
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
+                    Días efectivos de operación al año
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setDiasEfectivos(DIAS_EFECTIVOS)}
+                    className="text-xs text-copper font-medium underline underline-offset-2"
+                  >
+                    Restablecer
+                  </button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={280}
+                    max={365}
+                    step={1}
+                    value={diasEfectivos}
+                    onChange={(e) => setDiasEfectivos(Number(e.target.value))}
+                    className="flex-1 accent-copper h-2"
+                  />
+                  <span className="w-16 shrink-0 text-right font-semibold text-navy text-sm">
+                    {diasEfectivos} días
+                  </span>
                 </div>
               </div>
             </div>
@@ -335,6 +483,14 @@ export function Simulator() {
           <p className="text-navy/45 text-sm mt-1 mb-5">
             Desglose mensual y anual de ingresos, costos y gastos de tu participación.
           </p>
+          <OperationalVariablesSummary
+            escenario={escenario}
+            anio={anio}
+            moneda={moneda}
+            tasaCambio={tasaCambio}
+            diasEfectivos={diasEfectivos}
+            ocupacion={ocupacionActual}
+          />
           <DetailedFinancialTable desglose={desglose} moneda={moneda} tasaCambio={tasaCambio} />
         </div>
 
@@ -350,6 +506,8 @@ export function Simulator() {
             nUnidades={unidadesEfectivas}
             montoInvertido={montoInvertido}
             advancedParams={advancedParams}
+            diasEfectivos={diasEfectivos}
+            ocupacionPorEscenario={ocupacionPorEscenario}
             escenarioActivo={escenario}
             moneda={moneda}
             tasaCambio={tasaCambio}
@@ -364,6 +522,8 @@ export function Simulator() {
           nUnidades={unidadesEfectivas}
           montoInvertido={montoInvertido}
           advancedParams={advancedParams}
+          diasEfectivos={diasEfectivos}
+          ocupacionPorEscenario={ocupacionPorEscenario}
           moneda={moneda}
           tasaCambio={tasaCambio}
         />

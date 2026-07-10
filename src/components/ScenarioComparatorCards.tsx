@@ -1,4 +1,4 @@
-import { AdvancedParams, Anio, ESCENARIOS, Escenario, OCUPACION } from "@/lib/data";
+import { AdvancedParams, Anio, ESCENARIOS, Escenario } from "@/lib/data";
 import {
   Moneda,
   TipologiaSeleccion,
@@ -20,6 +20,8 @@ export function ScenarioComparatorCards({
   nUnidades,
   montoInvertido,
   advancedParams,
+  diasEfectivos,
+  ocupacionPorEscenario,
   escenarioActivo,
   moneda,
   tasaCambio,
@@ -29,6 +31,8 @@ export function ScenarioComparatorCards({
   nUnidades: number;
   montoInvertido: number;
   advancedParams: AdvancedParams;
+  diasEfectivos: number;
+  ocupacionPorEscenario: Record<Escenario, number>;
   escenarioActivo: Escenario;
   moneda: Moneda;
   tasaCambio: number;
@@ -36,12 +40,15 @@ export function ScenarioComparatorCards({
   return (
     <div className="grid sm:grid-cols-3 gap-4 sm:gap-5">
       {ESCENARIOS.map((e) => {
+        const ocupacion = ocupacionPorEscenario[e.id];
         const desglose = calcularDesglose({
           escenario: e.id,
           tipologia,
           anio,
           nUnidades,
           advancedParams,
+          diasEfectivos,
+          ocupacion,
         });
         const roiAnual = montoInvertido > 0 ? desglose.utilidadNeta / montoInvertido : 0;
         const isActive = e.id === escenarioActivo;
@@ -58,7 +65,7 @@ export function ScenarioComparatorCards({
                 <span className={`h-2 w-2 rounded-full ${DOT_COLOR[e.id]}`} />
                 {e.label}
               </span>
-              <span className="text-xs text-navy/40">Ocup. {formatPct(OCUPACION[e.id][anio], 0)}</span>
+              <span className="text-xs text-navy/40">Ocup. {formatPct(ocupacion, 0)}</span>
             </div>
 
             <p className="text-xs text-navy/40 uppercase tracking-wide">ADR aplicado</p>

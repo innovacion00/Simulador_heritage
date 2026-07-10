@@ -7,8 +7,8 @@ import {
   DIAS_EFECTIVOS,
   Escenario,
   FARA_ACUMULADO_POR_PROPIETARIO,
-  GASTOS_TOTALES,
-  INGRESOS_TOTALES,
+  GASTOS_FIJOS_ANUAL,
+  MARKETING_PCT,
   OCUPACION,
   PRECIO_VENTA_REFERENCIA,
   TIPOLOGIAS,
@@ -58,17 +58,35 @@ function unidadesDe(tipologia: Tipologia): number {
   return TIPOLOGIAS.find((t) => t.id === tipologia)!.unidades;
 }
 
+/** Ocupación oficial (fuente de verdad) para un escenario/año. */
+export function ocupacionBase(escenario: Escenario, anio: Anio): number {
+  return OCUPACION[escenario][anio];
+}
+
 /** Ingresos_tipología(año) = N unidades × ADR(año,escenario) × Días efectivos × %Ocupación(año,escenario) */
-export function ingresoTipologia(escenario: Escenario, tipologia: Tipologia, anio: Anio): number {
+export function ingresoTipologia(
+  escenario: Escenario,
+  tipologia: Tipologia,
+  anio: Anio,
+  diasEfectivos: number = DIAS_EFECTIVOS,
+  ocupacion: number = OCUPACION[escenario][anio]
+): number {
   const unidades = unidadesDe(tipologia);
   const adr = ADR[escenario][tipologia][anio];
-  const ocupacion = OCUPACION[escenario][anio];
-  return unidades * adr * DIAS_EFECTIVOS * ocupacion;
+  return unidades * adr * diasEfectivos * ocupacion;
 }
 
 /** Ingresos_totales(año) = Ingresos_1Hab(año) + Ingresos_2Hab(año) */
-export function ingresoTotalCalculado(escenario: Escenario, anio: Anio): number {
-  return ingresoTipologia(escenario, "1hab", anio) + ingresoTipologia(escenario, "2hab", anio);
+export function ingresoTotalCalculado(
+  escenario: Escenario,
+  anio: Anio,
+  diasEfectivos: number = DIAS_EFECTIVOS,
+  ocupacion: number = OCUPACION[escenario][anio]
+): number {
+  return (
+    ingresoTipologia(escenario, "1hab", anio, diasEfectivos, ocupacion) +
+    ingresoTipologia(escenario, "2hab", anio, diasEfectivos, ocupacion)
+  );
 }
 
 /** % participación pool = Ingresos_tipología(año) / Ingresos_totales(año) */
@@ -107,27 +125,33 @@ export function faraAcumuladoInversionista(escenario: Escenario, anio: AnioFara,
   return FARA_ACUMULADO_POR_PROPIETARIO[escenario][anio] * nUnidades;
 }
 
-/**
- * Bolsa de "otros gastos operativos" (nómina, servicios públicos, marketing, fee base,
- * administración, seguros, honorarios) — el residuo de Gastos_totales (fuente de verdad)
- * una vez descontados los componentes que sí son editables como % de ventas. Se mantiene
- * fijo aunque el usuario edite los parámetros avanzados, porque no varía con esos %.
- */
-function otrosGastosResidualProyecto(escenario: Escenario, anio: Anio): number {
-  const ingresos = INGRESOS_TOTALES[escenario][anio];
-  const gastos = GASTOS_TOTALES[escenario][anio];
-  const base = ADVANCED_PARAMS_DEFAULT;
-  return gastos - ingresos * base.otaPct - ingresos * base.faraPct - ingresos * base.smartStayFeePct;
-}
+const GASTOS_FIJOS_KEYS = Object.keys(GASTOS_FIJOS_ANUAL) as (keyof typeof GASTOS_FIJOS_ANUAL)[];
 
 export interface DesglosePYG {
+  ventas1Hab: number;
+  ventas2Hab: number;
   ventasBrutas: number;
   comisionOTA: number;
   fondoFARA: number;
   totalCostoVentas: number;
   utilidadBruta: number;
-  comisionSmartStay: number;
+  // Gastos operativos — partidas fijas (no varían por escenario, solo por año) tal como en
+  // la hoja HERITAGE, escaladas a la participación del inversionista en el pool.
+  nomina: number;
+  bolsaEmpleo: number;
+  serviciosPublicos: number;
+  tecnologia: number;
+  operacionSuministros: number;
+  marketing: number;
+  domotica: number;
+  cuotaAdministracion: number;
+  seguroResponsabilidadCivil: number;
+  honorariosContables: number;
+  revisoriaFiscal: number;
   otrosGastosOperativos: number;
+  segurosYLicencias: number;
+  comisionSmartStay: number;
+  feeBase: number;
   totalGastosOperacion: number;
   utilidadOperacional: number;
   impuestoRenta: number;
@@ -136,8 +160,10 @@ export interface DesglosePYG {
 
 /**
  * Desglose P&G escalado a la participación del inversionista (N° de unidades sobre el total
- * de su tipología), usando los % editables de "parámetros avanzados". Con los valores por
- * defecto, el resultado coincide exactamente con la fuente de verdad (tablas de la hoja HERITAGE).
+ * de su tipología), replicando fila por fila la sección "GASTOS PROYECTADOS" de la hoja HERITAGE.
+ * Comisión OTA, Fondo FARA, Comisión Smart Stay e Impuesto usan los % editables de "parámetros
+ * avanzados"; el resto de partidas son fijas (fuente de verdad) y solo varían por año (inflación).
+ * Con los valores por defecto, el resultado coincide exactamente con la hoja HERITAGE.
  */
 export function calcularDesglose(params: {
   escenario: Escenario;
@@ -145,50 +171,97 @@ export function calcularDesglose(params: {
   anio: Anio;
   nUnidades: number;
   advancedParams?: AdvancedParams;
+  diasEfectivos?: number;
+  ocupacion?: number;
 }): DesglosePYG {
   const { escenario, tipologia, anio, nUnidades } = params;
   const adv = params.advancedParams ?? ADVANCED_PARAMS_DEFAULT;
+  const dias = params.diasEfectivos ?? DIAS_EFECTIVOS;
+  const ocupacion = params.ocupacion ?? OCUPACION[escenario][anio];
 
   const tipologias: Tipologia[] = tipologia === "mixto" ? ["1hab", "2hab"] : [tipologia];
   const splits: Record<Tipologia, number> =
     tipologia === "mixto" ? splitMixto(nUnidades) : ({ [tipologia]: nUnidades } as Record<Tipologia, number>);
 
+  let ventas1Hab = 0;
+  let ventas2Hab = 0;
   let ventasBrutas = 0;
   let comisionOTA = 0;
   let fondoFARA = 0;
+  let marketing = 0;
   let comisionSmartStay = 0;
-  let otrosGastosOperativos = 0;
+  const fijos: Record<keyof typeof GASTOS_FIJOS_ANUAL, number> = Object.fromEntries(
+    GASTOS_FIJOS_KEYS.map((k) => [k, 0])
+  ) as Record<keyof typeof GASTOS_FIJOS_ANUAL, number>;
 
   for (const t of tipologias) {
     const unidadesT = unidadesDe(t);
     const nT = splits[t] ?? 0;
     const share = unidadesT > 0 ? nT / unidadesT : 0;
-    const ventasT = ingresoTipologia(escenario, t, anio) * share;
+    const ventasT = ingresoTipologia(escenario, t, anio, dias, ocupacion) * share;
     const participT = participacionPool(escenario, t, anio);
-    const otrosResidualT = otrosGastosResidualProyecto(escenario, anio) * participT * share;
+
+    if (t === "1hab") ventas1Hab += ventasT;
+    else ventas2Hab += ventasT;
 
     ventasBrutas += ventasT;
     comisionOTA += ventasT * adv.otaPct;
     fondoFARA += ventasT * adv.faraPct;
+    marketing += ventasT * MARKETING_PCT;
     comisionSmartStay += ventasT * adv.smartStayFeePct;
-    otrosGastosOperativos += otrosResidualT;
+
+    for (const key of GASTOS_FIJOS_KEYS) {
+      fijos[key] += GASTOS_FIJOS_ANUAL[key][anio] * participT * share;
+    }
   }
 
   const totalCostoVentas = comisionOTA + fondoFARA;
   const utilidadBruta = ventasBrutas - totalCostoVentas;
-  const totalGastosOperacion = comisionSmartStay + otrosGastosOperativos;
+
+  const totalGastosOperacion =
+    marketing +
+    comisionSmartStay +
+    fijos.nomina +
+    fijos.bolsaEmpleo +
+    fijos.serviciosPublicos +
+    fijos.tecnologia +
+    fijos.operacionSuministros +
+    fijos.domotica +
+    fijos.cuotaAdministracion +
+    fijos.seguroResponsabilidadCivil +
+    fijos.honorariosContables +
+    fijos.revisoriaFiscal +
+    fijos.otrosGastosOperativos +
+    fijos.segurosYLicencias +
+    fijos.feeBase;
+
   const utilidadOperacional = utilidadBruta - totalGastosOperacion;
   const impuestoRenta = utilidadOperacional * adv.impuestoPct;
   const utilidadNeta = utilidadOperacional - impuestoRenta;
 
   return {
+    ventas1Hab,
+    ventas2Hab,
     ventasBrutas,
     comisionOTA,
     fondoFARA,
     totalCostoVentas,
     utilidadBruta,
+    nomina: fijos.nomina,
+    bolsaEmpleo: fijos.bolsaEmpleo,
+    serviciosPublicos: fijos.serviciosPublicos,
+    tecnologia: fijos.tecnologia,
+    operacionSuministros: fijos.operacionSuministros,
+    marketing,
+    domotica: fijos.domotica,
+    cuotaAdministracion: fijos.cuotaAdministracion,
+    seguroResponsabilidadCivil: fijos.seguroResponsabilidadCivil,
+    honorariosContables: fijos.honorariosContables,
+    revisoriaFiscal: fijos.revisoriaFiscal,
+    otrosGastosOperativos: fijos.otrosGastosOperativos,
+    segurosYLicencias: fijos.segurosYLicencias,
     comisionSmartStay,
-    otrosGastosOperativos,
+    feeBase: fijos.feeBase,
     totalGastosOperacion,
     utilidadOperacional,
     impuestoRenta,
@@ -214,10 +287,24 @@ export function simular(params: {
   montoInvertido: number;
   incluirFara: boolean;
   advancedParams?: AdvancedParams;
+  diasEfectivos?: number;
+  ocupacion?: number;
+  ocupacionAnio3?: number;
 }): ResultadoSimulacion {
-  const { escenario, tipologia, anio, nUnidades, montoInvertido, incluirFara, advancedParams } = params;
+  const {
+    escenario,
+    tipologia,
+    anio,
+    nUnidades,
+    montoInvertido,
+    incluirFara,
+    advancedParams,
+    diasEfectivos,
+    ocupacion,
+    ocupacionAnio3,
+  } = params;
 
-  const desglose = calcularDesglose({ escenario, tipologia, anio, nUnidades, advancedParams });
+  const desglose = calcularDesglose({ escenario, tipologia, anio, nUnidades, advancedParams, diasEfectivos, ocupacion });
   const fara = incluirFara ? faraAcumuladoInversionista(escenario, anio as AnioFara, nUnidades) : 0;
   const utilidadTotalConFara = desglose.utilidadNeta + fara;
 
@@ -230,6 +317,8 @@ export function simular(params: {
     anio: 3,
     nUnidades,
     advancedParams,
+    diasEfectivos,
+    ocupacion: ocupacionAnio3,
   });
   const paybackAnios =
     desgloseMaduracion.utilidadNeta > 0 ? montoInvertido / desgloseMaduracion.utilidadNeta : null;
