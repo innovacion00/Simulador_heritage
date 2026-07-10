@@ -60,7 +60,6 @@ export function DetailedFinancialTable({
     { key: "tecnologia", concepto: "Tecnología y comunicaciones", original: desglose.tecnologia, sign: -1 },
     { key: "operacionSuministros", concepto: "Operación y suministros", original: desglose.operacionSuministros, sign: -1 },
     { key: "marketing", concepto: "Marketing y comercialización", original: desglose.marketing, sign: -1 },
-    { key: "domotica", concepto: "Domótica (cerraduras + sensores)", original: desglose.domotica, sign: -1 },
     { key: "cuotaAdministracion", concepto: "Cuota administración / condominio", original: desglose.cuotaAdministracion, sign: -1 },
     { key: "seguroResponsabilidadCivil", concepto: "Seguro responsabilidad civil", original: desglose.seguroResponsabilidadCivil, sign: -1 },
     { key: "honorariosContables", concepto: "Honorarios firma contable", original: desglose.honorariosContables, sign: -1 },

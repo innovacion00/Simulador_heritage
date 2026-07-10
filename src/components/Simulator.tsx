@@ -25,6 +25,7 @@ import { OperationalVariablesSummary } from "./OperationalVariablesSummary";
 import { DetailedFinancialTable } from "./DetailedFinancialTable";
 import { ScenarioComparatorCards } from "./ScenarioComparatorCards";
 import { ChartsSection } from "./ChartsSection";
+import { ExpenseAnnexTables } from "./ExpenseAnnexTables";
 import { ActionBar } from "./ActionBar";
 import { IconBuilding, IconDollar, IconPercent, IconReceipt, IconTrendUp, IconWallet } from "./icons";
 
@@ -513,6 +514,9 @@ export function Simulator() {
             tasaCambio={tasaCambio}
           />
         </div>
+
+        {/* Detallado de gastos */}
+        <ExpenseAnnexTables moneda={moneda} tasaCambio={tasaCambio} />
 
         {/* Gráficas */}
         <ChartsSection

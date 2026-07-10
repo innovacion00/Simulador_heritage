@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-const WHATSAPP_NUMBER = "573000000000";
 const CONTACT_EMAIL = "ventas@smartstay.com";
 
 export function ActionBar({ resumenTexto }: { resumenTexto: string }) {
@@ -18,7 +17,6 @@ export function ActionBar({ resumenTexto }: { resumenTexto: string }) {
     }
   };
 
-  const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(resumenTexto)}`;
   const mailtoHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
     "Solicito asesoría — Condo Resort Heritage"
   )}&body=${encodeURIComponent(resumenTexto)}`;
@@ -51,14 +49,6 @@ export function ActionBar({ resumenTexto }: { resumenTexto: string }) {
           >
             {copiado ? "✓ Copiado" : "⧉ Copiar resumen"}
           </button>
-          <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-xl bg-optimista text-white px-5 py-3 text-sm font-medium hover:brightness-110 transition-all"
-          >
-            ✆ Enviar por WhatsApp
-          </a>
           <a
             href={mailtoHref}
             className="inline-flex items-center gap-2 rounded-xl bg-gold hover:bg-gold-light transition-colors text-navy-deep px-5 py-3 text-sm font-semibold"

@@ -143,5 +143,66 @@ export const FARA_ACUMULADO_POR_PROPIETARIO: Record<Escenario, Record<AnioFara, 
   optimista: { 1: 4_738_584, 2: 10_523_301, 3: 17_498_424, 4: 25_583_549, 5: 34_917_158 },
 };
 
+// ANEXO 1 — Detalle de nómina (costo mensual, Año 1 base). Fuente: hoja HERITAGE, filas 74-96.
+// Los cargos marcados "incluido en fee Smart Stay" están cubiertos por la Comisión Smart Stay
+// (variable) y el Fee base, por eso su costo mensual directo es 0 en este anexo.
+export interface AnexoNominaRow {
+  cargo: string;
+  cantidad: number;
+  salarioMensual: number;
+  costoMensual: number;
+}
+
+export const ANEXO_NOMINA: AnexoNominaRow[] = [
+  { cargo: "Revenue Manager (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 3_000_000, costoMensual: 0 },
+  { cargo: "Operadora de Reservas (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 3_000_000, costoMensual: 0 },
+  { cargo: "Equipo Comercial (incluido en fee Smart Stay)", cantidad: 4, salarioMensual: 2_500_000, costoMensual: 0 },
+  { cargo: "Operación Diaria de canales (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 0 },
+  { cargo: "Contac Center y Atención al cliente (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 0 },
+  { cargo: "Desarrolladores e Innovación (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 0 },
+  { cargo: "Gerente General", cantidad: 1, salarioMensual: 4_800_000, costoMensual: 6_960_000 },
+  { cargo: "Administrador", cantidad: 1, salarioMensual: 3_500_000, costoMensual: 5_075_000 },
+  { cargo: "Recepcionistas", cantidad: 4, salarioMensual: 2_200_000, costoMensual: 12_760_000 },
+  { cargo: "Auditor Nocturno", cantidad: 1, salarioMensual: 2_200_000, costoMensual: 3_190_000 },
+  { cargo: "Botones", cantidad: 4, salarioMensual: 2_000_000, costoMensual: 11_600_000 },
+  { cargo: "Camareras", cantidad: 6, salarioMensual: 2_000_000, costoMensual: 17_400_000 },
+  { cargo: "Mantenimiento", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 5_800_000 },
+  { cargo: "Ama de Llaves", cantidad: 1, salarioMensual: 2_000_000, costoMensual: 2_900_000 },
+  { cargo: "Supervisora", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 5_800_000 },
+  { cargo: "Coordinadora de Calidad", cantidad: 1, salarioMensual: 2_900_000, costoMensual: 4_205_000 },
+  { cargo: "Coordinador SST (SG-SST)", cantidad: 1, salarioMensual: 2_900_000, costoMensual: 4_205_000 },
+  { cargo: "Salvavidas - Club de Playa", cantidad: 2, salarioMensual: 2_500_000, costoMensual: 7_250_000 },
+  { cargo: "Personal de Playa - Servicios de atención", cantidad: 2, salarioMensual: 2_500_000, costoMensual: 7_250_000 },
+  { cargo: "Concierge", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 5_800_000 },
+];
+
+export const ANEXO_NOMINA_TOTAL_CANTIDAD = 44;
+export const ANEXO_NOMINA_TOTAL_MENSUAL = 100_195_000;
+
+// ANEXO 3 — Otros gastos operativos (costo mensual). Fuente: hoja HERITAGE, filas 114-130.
+export interface AnexoOtrosGastosRow {
+  concepto: string;
+  valorMensual: number;
+}
+
+export const ANEXO_OTROS_GASTOS: AnexoOtrosGastosRow[] = [
+  { concepto: "Flores y decoración", valorMensual: 1_500_000 },
+  { concepto: "Servicios de minibar", valorMensual: 2_000_000 },
+  { concepto: "Gastos médicos (exámenes ocupacionales)", valorMensual: 800_000 },
+  { concepto: "Bonificaciones", valorMensual: 2_000_000 },
+  { concepto: "Servicios de ambulancia", valorMensual: 800_000 },
+  { concepto: "Alimentación de empleados", valorMensual: 3_000_000 },
+  { concepto: "Licencias", valorMensual: 1_500_000 },
+  { concepto: "Autocord", valorMensual: 500_000 },
+  { concepto: "Agremiación (ASOTELCA / gremio)", valorMensual: 600_000 },
+  { concepto: "Costos por datáfonos", valorMensual: 2_000_000 },
+  { concepto: "Servicios musicales (música ambiental)", valorMensual: 700_000 },
+  { concepto: "Otros", valorMensual: 1_000_000 },
+  { concepto: "Lancha Deportiva (12 Viajes Diarios)", valorMensual: 15_000_000 },
+  { concepto: "Ambientadores", valorMensual: 600_000 },
+];
+
+export const ANEXO_OTROS_GASTOS_TOTAL_MENSUAL = 32_000_000;
+
 export const DISCLAIMER =
   "Cifras basadas en proyecciones financieras del modelo operativo de Smart Stay. No constituyen garantía de rentabilidad. Rentabilidades pasadas o proyectadas no aseguran resultados futuros.";
