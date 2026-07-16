@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  ADR,
   ADVANCED_PARAMS_DEFAULT,
   Anio,
   DIAS_EFECTIVOS,
@@ -9,6 +10,8 @@ import {
   Escenario,
   OCUPACION,
   TASA_CAMBIO_REFERENCIA,
+  TIPOLOGIAS,
+  Tipologia,
   UNIDADES_TOTALES,
 } from "@/lib/data";
 import {
@@ -21,7 +24,7 @@ import {
 } from "@/lib/calculations";
 import { AdvancedParamsPanel } from "./AdvancedParamsPanel";
 import { StatTile } from "./StatTile";
-import { OperationalVariablesSummary } from "./OperationalVariablesSummary";
+import { VariablesOperativasTable } from "./VariablesOperativasTable";
 import { DetailedFinancialTable } from "./DetailedFinancialTable";
 import { ScenarioComparatorCards } from "./ScenarioComparatorCards";
 import { ChartsSection } from "./ChartsSection";
@@ -38,12 +41,6 @@ const TIPOLOGIA_OPTS: { id: TipologiaSeleccion; label: string }[] = [
 const PRECIO_MIN = 200_000_000;
 const PRECIO_MAX = 900_000_000;
 const PRECIO_STEP = 5_000_000;
-
-const ANIOS: { id: Anio; label: string }[] = [
-  { id: 1, label: "Año 1" },
-  { id: 2, label: "Año 2" },
-  { id: 3, label: "Año 3" },
-];
 
 function SegmentedControl<T extends string | number>({
   options,
@@ -75,7 +72,9 @@ function SegmentedControl<T extends string | number>({
 export function Simulator() {
   const [tipologia, setTipologia] = useState<TipologiaSeleccion>("1hab");
   const [escenario, setEscenario] = useState<Escenario>("conservador");
-  const [anio, setAnio] = useState<Anio>(1);
+  // El modelo trabaja siempre sobre el Año 1; el horizonte de tiempo en pantalla es solo
+  // mensual/anual (ver StatTiles de Resultados), no una selección de año.
+  const anio: Anio = 1;
   const [nUnidades, setNUnidades] = useState(1);
   const [inputMode, setInputMode] = useState<"unidades" | "monto">("unidades");
   const [montoTexto, setMontoTexto] = useState("");
@@ -87,6 +86,9 @@ export function Simulator() {
   const [diasEfectivos, setDiasEfectivos] = useState(DIAS_EFECTIVOS);
   const [ocupacionOverrides, setOcupacionOverrides] = useState<
     Partial<Record<Escenario, Partial<Record<Anio, number>>>>
+  >({});
+  const [adrOverrides, setAdrOverrides] = useState<
+    Partial<Record<Escenario, Partial<Record<Tipologia, Partial<Record<Anio, number>>>>>>
   >({});
   const [tipologiaAnterior, setTipologiaAnterior] = useState(tipologia);
 
@@ -104,6 +106,35 @@ export function Simulator() {
     optimista: getOcupacion("optimista", anio),
   };
 
+  const getAdr = (esc: Escenario, tip: Tipologia, an: Anio): number =>
+    adrOverrides[esc]?.[tip]?.[an] ?? ADR[esc][tip][an];
+
+  const setAdr = (esc: Escenario, tip: Tipologia, an: Anio, valor: number) =>
+    setAdrOverrides((prev) => ({
+      ...prev,
+      [esc]: { ...prev[esc], [tip]: { ...prev[esc]?.[tip], [an]: valor } },
+    }));
+
+  const adrOverrideActual: Partial<Record<Tipologia, number>> = useMemo(
+    () => ({
+      "1hab": adrOverrides[escenario]?.["1hab"]?.[anio] ?? ADR[escenario]["1hab"][anio],
+      "2hab": adrOverrides[escenario]?.["2hab"]?.[anio] ?? ADR[escenario]["2hab"][anio],
+    }),
+    [adrOverrides, escenario, anio]
+  );
+  const adrOverrideAnio3: Partial<Record<Tipologia, number>> = useMemo(
+    () => ({
+      "1hab": adrOverrides[escenario]?.["1hab"]?.[3] ?? ADR[escenario]["1hab"][3],
+      "2hab": adrOverrides[escenario]?.["2hab"]?.[3] ?? ADR[escenario]["2hab"][3],
+    }),
+    [adrOverrides, escenario]
+  );
+  const adrOverridePorEscenario: Record<Escenario, Partial<Record<Tipologia, number>>> = {
+    pesimista: { "1hab": getAdr("pesimista", "1hab", anio), "2hab": getAdr("pesimista", "2hab", anio) },
+    conservador: { "1hab": getAdr("conservador", "1hab", anio), "2hab": getAdr("conservador", "2hab", anio) },
+    optimista: { "1hab": getAdr("optimista", "1hab", anio), "2hab": getAdr("optimista", "2hab", anio) },
+  };
+
   // Al cambiar de tipología, se reinicia el precio de referencia a su valor base
   // (el usuario puede seguir ajustándolo con la barra deslizante).
   if (tipologia !== tipologiaAnterior) {
@@ -111,8 +142,15 @@ export function Simulator() {
     setPrecioUnidad(precioReferencia(tipologia));
     if (tipologia === "mixto") {
       setInputMode("unidades");
+    } else {
+      const max = TIPOLOGIAS.find((t) => t.id === tipologia)!.unidades;
+      setNUnidades((n) => Math.min(n, max));
     }
   }
+
+  // Máximo de unidades disponibles para la tipología seleccionada (72 para 1 Habitación,
+  // 36 para 2 Habitaciones); no aplica en "mixto" (usa el total del edificio).
+  const maxUnidades = esProyectoCompleto ? UNIDADES_TOTALES : TIPOLOGIAS.find((t) => t.id === tipologia)!.unidades;
 
   const unidadesEfectivas = useMemo(() => {
     if (esProyectoCompleto) return UNIDADES_TOTALES;
@@ -140,6 +178,8 @@ export function Simulator() {
         diasEfectivos,
         ocupacion: ocupacionActual,
         ocupacionAnio3: ocupacionOverrides[escenario]?.[3] ?? OCUPACION[escenario][3],
+        adrOverride: adrOverrideActual,
+        adrOverrideAnio3,
       }),
     [
       escenario,
@@ -152,6 +192,8 @@ export function Simulator() {
       diasEfectivos,
       ocupacionActual,
       ocupacionOverrides,
+      adrOverrideActual,
+      adrOverrideAnio3,
     ]
   );
 
@@ -162,7 +204,7 @@ export function Simulator() {
   const resumenTexto = [
     "Simulación de rentabilidad — Condo Resort Heritage",
     `Tipología: ${TIPOLOGIA_OPTS.find((t) => t.id === tipologia)?.label}`,
-    `Escenario: ${ESCENARIOS.find((e) => e.id === escenario)?.label} · ${ANIOS.find((a) => a.id === anio)?.label}`,
+    `Escenario: ${ESCENARIOS.find((e) => e.id === escenario)?.label} · Año 1`,
     `Unidades: ${unidadesEfectivas} · Inversión: ${money(montoInvertido)}`,
     `Ingresos anuales: ${money(desglose.ventasBrutas)}`,
     `Costos y gastos anuales: ${money(totalCostosYGastos)}`,
@@ -224,7 +266,7 @@ export function Simulator() {
                   <>
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
-                        {inputMode === "unidades" ? "N° de unidades" : "Monto a invertir"}
+                        {inputMode === "unidades" ? `N° de unidades (máx. ${maxUnidades})` : "Monto a invertir"}
                       </label>
                       <button
                         type="button"
@@ -248,7 +290,7 @@ export function Simulator() {
                         <input
                           type="range"
                           min={1}
-                          max={20}
+                          max={maxUnidades}
                           value={nUnidades}
                           onChange={(e) => setNUnidades(Number(e.target.value))}
                           className="flex-1 accent-copper h-2"
@@ -256,7 +298,7 @@ export function Simulator() {
                         <button
                           type="button"
                           aria-label="Sumar unidad"
-                          onClick={() => setNUnidades((n) => Math.min(20, n + 1))}
+                          onClick={() => setNUnidades((n) => Math.min(maxUnidades, n + 1))}
                           className="h-11 w-11 shrink-0 rounded-xl bg-navy text-arena text-xl font-medium active:scale-95 transition-transform"
                         >
                           +
@@ -361,8 +403,7 @@ export function Simulator() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
-                  % Ocupación — {ESCENARIOS.find((e) => e.id === escenario)?.label} ·{" "}
-                  {ANIOS.find((a) => a.id === anio)?.label}
+                  % Ocupación — {ESCENARIOS.find((e) => e.id === escenario)?.label} · Año 1
                 </label>
                 <button
                   type="button"
@@ -388,40 +429,69 @@ export function Simulator() {
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50 mb-2">
-                  Horizonte de tiempo
+            <div className="space-y-4">
+              {(tipologia === "mixto" ? (["1hab", "2hab"] as Tipologia[]) : [tipologia]).map((tip) => {
+                const label = tip === "1hab" ? "1 Habitación" : "2 Habitaciones";
+                const valorActual = getAdr(escenario, tip, anio);
+                return (
+                  <div key={tip}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
+                        ADR — Tarifa promedio {label} · {ESCENARIOS.find((e) => e.id === escenario)?.label} · Año 1
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setAdr(escenario, tip, anio, ADR[escenario][tip][anio])}
+                        className="text-xs text-copper font-medium underline underline-offset-2"
+                      >
+                        Restablecer
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={300_000}
+                        max={1_300_000}
+                        step={5_000}
+                        value={valorActual}
+                        onChange={(e) => setAdr(escenario, tip, anio, Number(e.target.value))}
+                        className="flex-1 accent-copper h-2"
+                      />
+                      <span className="w-28 shrink-0 text-right font-semibold text-navy text-sm">
+                        {money(valorActual)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
+                  Días efectivos de operación al año
                 </label>
-                <SegmentedControl options={ANIOS} value={anio} onChange={setAnio} />
+                <button
+                  type="button"
+                  onClick={() => setDiasEfectivos(DIAS_EFECTIVOS)}
+                  className="text-xs text-copper font-medium underline underline-offset-2"
+                >
+                  Restablecer
+                </button>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50">
-                    Días efectivos de operación al año
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setDiasEfectivos(DIAS_EFECTIVOS)}
-                    className="text-xs text-copper font-medium underline underline-offset-2"
-                  >
-                    Restablecer
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min={280}
-                    max={365}
-                    step={1}
-                    value={diasEfectivos}
-                    onChange={(e) => setDiasEfectivos(Number(e.target.value))}
-                    className="flex-1 accent-copper h-2"
-                  />
-                  <span className="w-16 shrink-0 text-right font-semibold text-navy text-sm">
-                    {diasEfectivos} días
-                  </span>
-                </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={280}
+                  max={365}
+                  step={1}
+                  value={diasEfectivos}
+                  onChange={(e) => setDiasEfectivos(Number(e.target.value))}
+                  className="flex-1 accent-copper h-2"
+                />
+                <span className="w-16 shrink-0 text-right font-semibold text-navy text-sm">
+                  {diasEfectivos} días
+                </span>
               </div>
             </div>
 
@@ -455,7 +525,7 @@ export function Simulator() {
           </h2>
           <p className="text-navy/50 text-sm mt-1">
             Tipología {TIPOLOGIA_OPTS.find((t) => t.id === tipologia)?.label} · Escenario{" "}
-            {ESCENARIOS.find((e) => e.id === escenario)?.label} · {ANIOS.find((a) => a.id === anio)?.label}
+            {ESCENARIOS.find((e) => e.id === escenario)?.label} · Mensual y anual
           </p>
         </div>
 
@@ -484,15 +554,16 @@ export function Simulator() {
           <p className="text-navy/45 text-sm mt-1 mb-5">
             Desglose mensual y anual de ingresos, costos y gastos de tu participación.
           </p>
-          <OperationalVariablesSummary
-            escenario={escenario}
-            anio={anio}
+          <VariablesOperativasTable
+            ocupacionPorEscenario={ocupacionPorEscenario}
+            adrOverridePorEscenario={adrOverridePorEscenario}
+            diasEfectivos={diasEfectivos}
             moneda={moneda}
             tasaCambio={tasaCambio}
-            diasEfectivos={diasEfectivos}
-            ocupacion={ocupacionActual}
           />
-          <DetailedFinancialTable desglose={desglose} moneda={moneda} tasaCambio={tasaCambio} />
+          <div className="mt-8">
+            <DetailedFinancialTable desglose={desglose} moneda={moneda} tasaCambio={tasaCambio} />
+          </div>
         </div>
 
         {/* Comparador de escenarios */}
@@ -509,6 +580,7 @@ export function Simulator() {
             advancedParams={advancedParams}
             diasEfectivos={diasEfectivos}
             ocupacionPorEscenario={ocupacionPorEscenario}
+            adrOverridePorEscenario={adrOverridePorEscenario}
             escenarioActivo={escenario}
             moneda={moneda}
             tasaCambio={tasaCambio}
@@ -528,6 +600,7 @@ export function Simulator() {
           advancedParams={advancedParams}
           diasEfectivos={diasEfectivos}
           ocupacionPorEscenario={ocupacionPorEscenario}
+          adrOverridePorEscenario={adrOverridePorEscenario}
           moneda={moneda}
           tasaCambio={tasaCambio}
         />

@@ -8,6 +8,11 @@ interface LineItem {
   concepto: string;
   original: number;
   sign: 1 | -1;
+  // false = esta partida es un monto fijo en pesos en el Excel (no tiene % asociado, ej.
+  // Energía, Agua, Gas, Papelería...); la columna % no debe mostrar un "% de ventas"
+  // calculado porque no corresponde a ningún dato del Excel. true/undefined = el Excel sí
+  // define esta partida como % de ventas (Comisión canales, FARA, Marketing, etc.).
+  hasExcelPct?: boolean;
 }
 
 interface RowState {
@@ -17,6 +22,11 @@ interface RowState {
 
 const DEFAULT_ROW_STATE: RowState = { enabled: true, pctOverride: null };
 
+/**
+ * Réplica fila por fila de la sección de la hoja HERITAGE (Excel "Hertitage Nuevo.xlsx")
+ * que va de "INGRESOS PROYECTADOS" (A24) a "UTILIDAD NETA" (A66). Las filas A19-A22
+ * ("DETALLE - VARIABLES OPERATIVAS") se muestran aparte, en VariablesOperativasTable.
+ */
 export function DetailedFinancialTable({
   desglose,
   moneda,
@@ -45,37 +55,62 @@ export function DetailedFinancialTable({
     return item.original;
   };
 
+  // A25-A26: INGRESOS PROYECTADOS
   const ingresoItems: LineItem[] = [
     { key: "ventas1hab", concepto: "Ventas hospedaje 1 Habitación", original: desglose.ventas1Hab, sign: 1 },
     { key: "ventas2hab", concepto: "Ventas hospedaje 2 Habitaciones", original: desglose.ventas2Hab, sign: 1 },
+    { key: "otrosIngresos", concepto: "Otros ingresos NO operacionales", original: 0, sign: 1 },
   ];
-  const costoVentasItems: LineItem[] = [
-    { key: "comisionOTA", concepto: "Comisión OTAs", original: desglose.comisionOTA, sign: -1 },
-    { key: "fondoFARA", concepto: "Fondo FARA", original: desglose.fondoFARA, sign: -1 },
+
+  // A31-A35: COSTOS OPERACIONALES PROYECTADOS → subtotal COSTOS DIRECTOS (A37)
+  const costosDirectosItems: LineItem[] = [
+    { key: "comisionCanales", concepto: "Comisión canales (Booking, Airbnb, Web, Agencias + 20 Canales)", original: desglose.comisionCanales, sign: -1 },
+    { key: "feeAdministracion", concepto: "Comisión Fee Administración", original: desglose.feeAdministracion, sign: -1, hasExcelPct: false },
+    { key: "fondoFARA", concepto: "FARA (Fondo de Reposición y Reparación)", original: desglose.fondoFARA, sign: -1 },
+    { key: "costosOperacion", concepto: "Costos de Operación (Nómina Personal, Variables, Dotación)", original: desglose.costosOperacion, sign: -1 },
+    { key: "bolsaEmpleo", concepto: "Bolsa de Empleo", original: desglose.bolsaEmpleo, sign: -1 },
   ];
-  const gastoOperacionItems: LineItem[] = [
-    { key: "nomina", concepto: "Gastos nómina", original: desglose.nomina, sign: -1 },
-    { key: "bolsaEmpleo", concepto: "Bolsa de empleo", original: desglose.bolsaEmpleo, sign: -1 },
-    { key: "serviciosPublicos", concepto: "Servicios públicos", original: desglose.serviciosPublicos, sign: -1 },
-    { key: "tecnologia", concepto: "Tecnología y comunicaciones", original: desglose.tecnologia, sign: -1 },
-    { key: "operacionSuministros", concepto: "Operación y suministros", original: desglose.operacionSuministros, sign: -1 },
-    { key: "marketing", concepto: "Marketing y comercialización", original: desglose.marketing, sign: -1 },
-    { key: "cuotaAdministracion", concepto: "Cuota administración / condominio", original: desglose.cuotaAdministracion, sign: -1 },
-    { key: "seguroResponsabilidadCivil", concepto: "Seguro responsabilidad civil", original: desglose.seguroResponsabilidadCivil, sign: -1 },
-    { key: "honorariosContables", concepto: "Honorarios firma contable", original: desglose.honorariosContables, sign: -1 },
-    { key: "revisoriaFiscal", concepto: "Revisoría fiscal", original: desglose.revisoriaFiscal, sign: -1 },
-    { key: "otrosGastosOperativos", concepto: "Otros gastos operativos", original: desglose.otrosGastosOperativos, sign: -1 },
-    { key: "segurosYLicencias", concepto: "Seguros y licencias", original: desglose.segurosYLicencias, sign: -1 },
-    { key: "comisionSmartStay", concepto: "Comisión Smart Stay — fee variable", original: desglose.comisionSmartStay, sign: -1 },
-    { key: "feeBase", concepto: "Fee base Smart Stay (1Hab/2Hab por unidad)", original: desglose.feeBase, sign: -1 },
+
+  // A42-A45: SERVICIOS PUBLICOS → subtotal GASTOS SERVICIOS PUBLICOS (A47)
+  // Todas son montos fijos en pesos en el Excel (escalan por ocupación u otros factores,
+  // pero no como % de ventas), por eso hasExcelPct: false.
+  const serviciosPublicosItems: LineItem[] = [
+    { key: "energia", concepto: "Energía", original: desglose.energia, sign: -1, hasExcelPct: false },
+    { key: "agua", concepto: "Agua", original: desglose.agua, sign: -1, hasExcelPct: false },
+    { key: "gas", concepto: "Gas", original: desglose.gas, sign: -1, hasExcelPct: false },
+    { key: "internet", concepto: "Internet / Cable / Telefonía", original: desglose.internet, sign: -1, hasExcelPct: false },
   ];
-  const impuestoItem: LineItem = { key: "impuestoRenta", concepto: "Impuesto de renta", original: desglose.impuestoRenta, sign: -1 };
+
+  // A50-A55: GASTOS VARIOS → subtotal GASTOS VARIOS (A56)
+  // Marketing (B53=1%) y Operación Fee Operador comercial (B55=10%) sí son % de ventas en
+  // el Excel; el resto son montos fijos en pesos (B50, B51, B52, B54).
+  const gastosVariosItems: LineItem[] = [
+    { key: "papeleria", concepto: "Papelería", original: desglose.papeleria, sign: -1, hasExcelPct: false },
+    { key: "aseo", concepto: "Aseo", original: desglose.aseo, sign: -1, hasExcelPct: false },
+    { key: "lavanderia", concepto: "Lavandería", original: desglose.lavanderia, sign: -1, hasExcelPct: false },
+    { key: "marketing", concepto: "Marketing y Publicidad", original: desglose.marketing, sign: -1 },
+    { key: "honorariosContables", concepto: "Honorarios Firma Contable y Revisoría Fiscal", original: desglose.honorariosContables, sign: -1, hasExcelPct: false },
+    { key: "operadorComercialFee", concepto: "Operación Fee Operador comercial", original: desglose.operadorComercialFee, sign: -1 },
+  ];
+
+  // A58-A60: partidas individuales, sin subtotal propio. Las 3 son montos fijos en pesos.
+  const otrosGastosItems: LineItem[] = [
+    { key: "sayco", concepto: "Sayco y Acimpro", original: desglose.sayco, sign: -1, hasExcelPct: false },
+    { key: "pmsChanelManager", concepto: "PMS y Chanel Manager", original: desglose.pmsChanelManager, sign: -1, hasExcelPct: false },
+    { key: "otrosGastosOperativos", concepto: "Otros Gastos Operativos (Anexo 3) - prorrateo x unidad", original: desglose.otrosGastosOperativos, sign: -1, hasExcelPct: false },
+  ];
+
+  const impuestoItem: LineItem = { key: "impuestoRenta", concepto: "(-) Impuesto de renta", original: desglose.impuestoRenta, sign: -1 };
 
   const liveTotalIngresos = ingresoItems.reduce((s, i) => s + liveValue(i), 0);
-  const liveTotalCostoVentas = costoVentasItems.reduce((s, i) => s + liveValue(i), 0);
-  const liveUtilidadBruta = liveTotalIngresos - liveTotalCostoVentas;
-  const liveTotalGastosOperacion = gastoOperacionItems.reduce((s, i) => s + liveValue(i), 0);
-  const liveUtilidadOperacional = liveUtilidadBruta - liveTotalGastosOperacion;
+  const liveCostosDirectos = costosDirectosItems.reduce((s, i) => s + liveValue(i), 0);
+  const liveGastosServiciosPublicos = serviciosPublicosItems.reduce((s, i) => s + liveValue(i), 0);
+  const liveGastosVarios = gastosVariosItems.reduce((s, i) => s + liveValue(i), 0);
+  const liveOtrosGastos = otrosGastosItems.reduce((s, i) => s + liveValue(i), 0);
+
+  // A62: UTILIDAD BRUTA / EBITDA = TOTAL INGRESOS - COSTOS DIRECTOS - GASTOS SERV. PUB. - GASTOS VARIOS - Sayco - PMS - Otros
+  const liveUtilidadOperacional =
+    liveTotalIngresos - liveCostosDirectos - liveGastosServiciosPublicos - liveGastosVarios - liveOtrosGastos;
 
   // El impuesto, si no se toca, se recalcula dinámicamente como % de la utilidad operacional
   // vigente (igual que en el modelo real) — no se congela en su monto original.
@@ -96,6 +131,9 @@ export function DetailedFinancialTable({
     const magnitude = valueOverride !== undefined ? valueOverride : liveValue(item);
     const value = magnitude * item.sign;
     const pctValue = st.pctOverride !== null ? st.pctOverride * 100 : (magnitude / (pctBasis || 1)) * 100;
+    // Esta partida es un monto fijo en pesos en el Excel (no tiene % de ventas asociado):
+    // mostramos "—" en vez de un % calculado que no corresponde a ningún dato del Excel.
+    const sinPctExcel = item.hasExcelPct === false && st.pctOverride === null;
 
     return (
       <tr key={item.key} className={`border-b border-navy/5 ${!st.enabled ? "opacity-40" : ""}`}>
@@ -107,20 +145,24 @@ export function DetailedFinancialTable({
           {formatMoney(value, moneda, tasaCambio)}
         </td>
         <td className="py-1.5 pl-3 text-right">
-          <div className="inline-flex items-center justify-end gap-1">
-            <input
-              type="number"
-              step={0.1}
-              disabled={!st.enabled}
-              value={Number(pctValue.toFixed(2))}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setPctOverride(item.key, Number.isFinite(v) ? v / 100 : 0);
-              }}
-              className="w-16 rounded-lg border border-navy/15 bg-white px-1.5 py-1 text-right text-xs text-navy tabular-nums focus:outline-none focus:ring-2 focus:ring-copper disabled:bg-navy/5 disabled:text-navy/30"
-            />
-            <span className="text-navy/40 text-xs">%</span>
-          </div>
+          {sinPctExcel ? (
+            <span className="text-navy/30 text-xs pr-1">—</span>
+          ) : (
+            <div className="inline-flex items-center justify-end gap-1">
+              <input
+                type="number"
+                step={0.1}
+                disabled={!st.enabled}
+                value={Number(pctValue.toFixed(2))}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setPctOverride(item.key, Number.isFinite(v) ? v / 100 : 0);
+                }}
+                className="w-16 rounded-lg border border-navy/15 bg-white px-1.5 py-1 text-right text-xs text-navy tabular-nums focus:outline-none focus:ring-2 focus:ring-copper disabled:bg-navy/5 disabled:text-navy/30"
+              />
+              <span className="text-navy/40 text-xs">%</span>
+            </div>
+          )}
         </td>
         <td className="py-2.5 pl-3 text-center">
           <button
@@ -143,9 +185,17 @@ export function DetailedFinancialTable({
     );
   };
 
+  const renderSectionHeader = (label: string) => (
+    <tr key={label} className="bg-navy/[0.06]">
+      <td colSpan={5} className="py-2 pr-4 pl-4 font-semibold text-navy text-xs uppercase tracking-wide">
+        {label}
+      </td>
+    </tr>
+  );
+
   const renderSubtotalRow = (concepto: string, value: number) => (
     <tr key={concepto} className="border-b border-navy/5 bg-navy/[0.03]">
-      <td className="py-2.5 pr-4 font-semibold text-navy">{concepto}</td>
+      <td className="py-2.5 pr-4 pl-4 font-semibold text-navy">{concepto}</td>
       <td className="py-2.5 px-3 text-right font-semibold text-navy tabular-nums">
         {formatMoney(value / 12, moneda, tasaCambio)}
       </td>
@@ -159,7 +209,7 @@ export function DetailedFinancialTable({
 
   const renderPctOnlyRow = (concepto: string, value: number) => (
     <tr key={concepto} className="border-b border-navy/5">
-      <td className="py-2.5 pr-4 text-navy/70">{concepto}</td>
+      <td className="py-2.5 pr-4 pl-4 text-navy/70">{concepto}</td>
       <td className="py-2.5 px-3 text-right text-navy/30">—</td>
       <td className="py-2.5 px-3 text-right text-navy/30">—</td>
       <td className="py-2.5 pl-3 text-right font-semibold text-navy tabular-nums">{formatPct(value)}</td>
@@ -172,7 +222,7 @@ export function DetailedFinancialTable({
       <table className="w-full text-sm min-w-[640px]">
         <thead>
           <tr className="border-b border-navy/10 text-left">
-            <th className="py-3 pr-4 font-medium text-navy/45 text-xs uppercase tracking-wide">Concepto</th>
+            <th className="py-3 pr-4 pl-4 font-medium text-navy/45 text-xs uppercase tracking-wide">Concepto</th>
             <th className="py-3 px-3 font-medium text-navy/45 text-xs uppercase tracking-wide text-right">Mensual</th>
             <th className="py-3 px-3 font-medium text-navy/45 text-xs uppercase tracking-wide text-right">Anual</th>
             <th className="py-3 pl-3 font-medium text-navy/45 text-xs uppercase tracking-wide text-right">%</th>
@@ -180,21 +230,28 @@ export function DetailedFinancialTable({
           </tr>
         </thead>
         <tbody>
+          {renderSectionHeader("Ingresos Proyectados")}
           {ingresoItems.map((item) => renderEditableRow(item))}
           {renderSubtotalRow("TOTAL INGRESOS", liveTotalIngresos)}
 
-          {costoVentasItems.map((item) => renderEditableRow(item))}
-          {renderSubtotalRow("Total costo de ventas", -liveTotalCostoVentas)}
-          {renderSubtotalRow("Utilidad bruta", liveUtilidadBruta)}
+          {renderSectionHeader("Costos Operacionales Proyectados")}
+          {costosDirectosItems.map((item) => renderEditableRow(item))}
+          {renderSubtotalRow("COSTOS DIRECTOS", -liveCostosDirectos)}
 
-          {gastoOperacionItems.map((item) => renderEditableRow(item))}
-          {renderSubtotalRow("Total gastos de operación", -liveTotalGastosOperacion)}
+          {renderSectionHeader("Gastos Proyectados — Servicios Públicos")}
+          {serviciosPublicosItems.map((item) => renderEditableRow(item))}
+          {renderSubtotalRow("GASTOS SERVICIOS PÚBLICOS", -liveGastosServiciosPublicos)}
 
-          {renderSubtotalRow("Utilidad operacional (EBITDA)", liveUtilidadOperacional)}
-          {renderPctOnlyRow("Margen EBITDA", pctBasis > 0 ? liveUtilidadOperacional / pctBasis : 0)}
+          {renderSectionHeader("Gastos Varios")}
+          {gastosVariosItems.map((item) => renderEditableRow(item))}
+          {renderSubtotalRow("GASTOS VARIOS", -liveGastosVarios)}
+
+          {otrosGastosItems.map((item) => renderEditableRow(item))}
+
+          {renderSubtotalRow("UTILIDAD BRUTA / EBITDA", liveUtilidadOperacional)}
+          {renderPctOnlyRow("Margen EBITDA (%)", pctBasis > 0 ? liveUtilidadOperacional / pctBasis : 0)}
           {renderEditableRow(impuestoItem, liveImpuesto)}
           {renderSubtotalRow("UTILIDAD NETA", liveUtilidadNeta)}
-          {renderPctOnlyRow("Margen neto", pctBasis > 0 ? liveUtilidadNeta / pctBasis : 0)}
         </tbody>
       </table>
       <p className="text-xs text-navy/40 mt-3">

@@ -1,4 +1,4 @@
-import { AdvancedParams, Anio, ESCENARIOS, Escenario } from "@/lib/data";
+import { AdvancedParams, Anio, ESCENARIOS, Escenario, Tipologia } from "@/lib/data";
 import {
   Moneda,
   TipologiaSeleccion,
@@ -22,6 +22,7 @@ export function ScenarioComparatorCards({
   advancedParams,
   diasEfectivos,
   ocupacionPorEscenario,
+  adrOverridePorEscenario,
   escenarioActivo,
   moneda,
   tasaCambio,
@@ -33,6 +34,7 @@ export function ScenarioComparatorCards({
   advancedParams: AdvancedParams;
   diasEfectivos: number;
   ocupacionPorEscenario: Record<Escenario, number>;
+  adrOverridePorEscenario?: Record<Escenario, Partial<Record<Tipologia, number>>>;
   escenarioActivo: Escenario;
   moneda: Moneda;
   tasaCambio: number;
@@ -41,6 +43,7 @@ export function ScenarioComparatorCards({
     <div className="grid sm:grid-cols-3 gap-4 sm:gap-5">
       {ESCENARIOS.map((e) => {
         const ocupacion = ocupacionPorEscenario[e.id];
+        const adrOverride = adrOverridePorEscenario?.[e.id];
         const desglose = calcularDesglose({
           escenario: e.id,
           tipologia,
@@ -49,6 +52,7 @@ export function ScenarioComparatorCards({
           advancedParams,
           diasEfectivos,
           ocupacion,
+          adrOverride,
         });
         const roiAnual = montoInvertido > 0 ? desglose.utilidadNeta / montoInvertido : 0;
         const isActive = e.id === escenarioActivo;
@@ -70,7 +74,7 @@ export function ScenarioComparatorCards({
 
             <p className="text-xs text-navy/40 uppercase tracking-wide">ADR aplicado</p>
             <p className="text-base font-semibold text-navy mb-4">
-              {formatMoney(adrAplicado(e.id, tipologia, anio), moneda, tasaCambio)}
+              {formatMoney(adrAplicado(e.id, tipologia, anio, adrOverride), moneda, tasaCambio)}
             </p>
 
             <dl className="space-y-2 text-sm">

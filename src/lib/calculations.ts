@@ -2,15 +2,29 @@ import {
   ADR,
   ADVANCED_PARAMS_DEFAULT,
   AdvancedParams,
+  AGUA_BASE_MENSUAL,
   Anio,
+  ASEO_BASE_MENSUAL,
   AnioFara,
-  DIAS_EFECTIVOS,
+  BOLSA_EMPLEO_PCT,
+  COSTOS_OPERACION_PCT,
+  DIAS_BASE,
+  ENERGIA_BASE_MENSUAL,
   Escenario,
   FARA_ACUMULADO_POR_PROPIETARIO,
-  GASTOS_FIJOS_ANUAL,
+  FEE_ADMINISTRACION_MENSUAL,
+  GAS_BASE_MENSUAL,
+  HONORARIOS_CONTABLES_BASE_MENSUAL,
+  INFLACION_COSTOS_ANUAL,
+  INTERNET_BASE_MENSUAL,
+  LAVANDERIA_BASE_MENSUAL,
   MARKETING_PCT,
   OCUPACION,
+  OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL,
+  PAPELERIA_BASE_MENSUAL,
+  PMS_CHANEL_MANAGER_BASE_MENSUAL,
   PRECIO_VENTA_REFERENCIA,
+  SAYCO_BASE_MENSUAL,
   TIPOLOGIAS,
   Tipologia,
   UNIDADES_TOTALES,
@@ -63,16 +77,16 @@ export function ocupacionBase(escenario: Escenario, anio: Anio): number {
   return OCUPACION[escenario][anio];
 }
 
-/** Ingresos_tipología(año) = N unidades × ADR(año,escenario) × Días efectivos × %Ocupación(año,escenario) */
+/** Ingresos_tipología(año) = N unidades × ADR(año,escenario) × Días base de la tipología × %Ocupación(año,escenario) */
 export function ingresoTipologia(
   escenario: Escenario,
   tipologia: Tipologia,
   anio: Anio,
-  diasEfectivos: number = DIAS_EFECTIVOS,
-  ocupacion: number = OCUPACION[escenario][anio]
+  diasEfectivos: number = DIAS_BASE[tipologia],
+  ocupacion: number = OCUPACION[escenario][anio],
+  adr: number = ADR[escenario][tipologia][anio]
 ): number {
   const unidades = unidadesDe(tipologia);
-  const adr = ADR[escenario][tipologia][anio];
   return unidades * adr * diasEfectivos * ocupacion;
 }
 
@@ -80,18 +94,13 @@ export function ingresoTipologia(
 export function ingresoTotalCalculado(
   escenario: Escenario,
   anio: Anio,
-  diasEfectivos: number = DIAS_EFECTIVOS,
+  diasEfectivos?: number,
   ocupacion: number = OCUPACION[escenario][anio]
 ): number {
   return (
-    ingresoTipologia(escenario, "1hab", anio, diasEfectivos, ocupacion) +
-    ingresoTipologia(escenario, "2hab", anio, diasEfectivos, ocupacion)
+    ingresoTipologia(escenario, "1hab", anio, diasEfectivos ?? DIAS_BASE["1hab"], ocupacion) +
+    ingresoTipologia(escenario, "2hab", anio, diasEfectivos ?? DIAS_BASE["2hab"], ocupacion)
   );
-}
-
-/** % participación pool = Ingresos_tipología(año) / Ingresos_totales(año) */
-export function participacionPool(escenario: Escenario, tipologia: Tipologia, anio: Anio): number {
-  return ingresoTipologia(escenario, tipologia, anio) / ingresoTotalCalculado(escenario, anio);
 }
 
 /** Reparte N° de unidades "mixto" respetando la proporción real del edificio (72:36 = 2:1). */
@@ -112,12 +121,23 @@ export function precioReferencia(tipologia: TipologiaSeleccion): number {
   );
 }
 
-/** ADR aplicado para mostrar en pantalla; para "mixto" se pondera por composición del edificio. */
-export function adrAplicado(escenario: Escenario, tipologia: TipologiaSeleccion, anio: Anio): number {
-  if (tipologia !== "mixto") return ADR[escenario][tipologia][anio];
+/**
+ * ADR aplicado para mostrar en pantalla; para "mixto" se pondera por composición del edificio.
+ * `adrOverride` permite sustituir el ADR fuente de verdad por un valor editado por el usuario
+ * (por tipología), tal como ya ocurre con la ocupación.
+ */
+export function adrAplicado(
+  escenario: Escenario,
+  tipologia: TipologiaSeleccion,
+  anio: Anio,
+  adrOverride?: Partial<Record<Tipologia, number>>
+): number {
+  if (tipologia !== "mixto") return adrOverride?.[tipologia] ?? ADR[escenario][tipologia][anio];
   const proporcion1hab = 72 / UNIDADES_TOTALES;
   const proporcion2hab = 36 / UNIDADES_TOTALES;
-  return ADR[escenario]["1hab"][anio] * proporcion1hab + ADR[escenario]["2hab"][anio] * proporcion2hab;
+  const adr1 = adrOverride?.["1hab"] ?? ADR[escenario]["1hab"][anio];
+  const adr2 = adrOverride?.["2hab"] ?? ADR[escenario]["2hab"][anio];
+  return adr1 * proporcion1hab + adr2 * proporcion2hab;
 }
 
 /** Rendimiento acumulado del Fondo FARA para el inversionista (escala por N° de unidades). Ajeno a los parámetros avanzados: es un ingreso, no un costo. */
@@ -125,33 +145,35 @@ export function faraAcumuladoInversionista(escenario: Escenario, anio: AnioFara,
   return FARA_ACUMULADO_POR_PROPIETARIO[escenario][anio] * nUnidades;
 }
 
-const GASTOS_FIJOS_KEYS = Object.keys(GASTOS_FIJOS_ANUAL) as (keyof typeof GASTOS_FIJOS_ANUAL)[];
-
 export interface DesglosePYG {
   ventas1Hab: number;
   ventas2Hab: number;
   ventasBrutas: number;
-  comisionOTA: number;
+  comisionCanales: number;
   fondoFARA: number;
   totalCostoVentas: number;
   utilidadBruta: number;
-  // Gastos operativos — partidas fijas (no varían por escenario, solo por año) tal como en
-  // la hoja HERITAGE, escaladas a la participación del inversionista en el pool.
-  nomina: number;
+  // Gastos operativos — costos de operación (nómina/variable/dotación) y bolsa de empleo son
+  // % sobre ventas; el resto son partidas fijas (fuente de verdad) POR APARTAMENTO (base
+  // mensual × 12 × N apartamentos). Energía/Agua/Gas varían por escenario porque se escalan
+  // por el % de ocupación de cada uno; aseo, Sayco, PMS y Otros Gastos Operativos varían por
+  // escenario porque su base mensual cambia por escenario (ver SAYCO_BASE_MENSUAL, etc.).
+  costosOperacion: number;
   bolsaEmpleo: number;
-  serviciosPublicos: number;
-  tecnologia: number;
-  operacionSuministros: number;
   marketing: number;
-  domotica: number;
-  cuotaAdministracion: number;
-  seguroResponsabilidadCivil: number;
+  operadorComercialFee: number;
+  feeAdministracion: number;
+  energia: number;
+  agua: number;
+  gas: number;
+  internet: number;
+  papeleria: number;
+  aseo: number;
+  lavanderia: number;
   honorariosContables: number;
-  revisoriaFiscal: number;
+  sayco: number;
+  pmsChanelManager: number;
   otrosGastosOperativos: number;
-  segurosYLicencias: number;
-  comisionSmartStay: number;
-  feeBase: number;
   totalGastosOperacion: number;
   utilidadOperacional: number;
   impuestoRenta: number;
@@ -159,11 +181,20 @@ export interface DesglosePYG {
 }
 
 /**
- * Desglose P&G escalado a la participación del inversionista (N° de unidades sobre el total
- * de su tipología), replicando fila por fila la sección "GASTOS PROYECTADOS" de la hoja HERITAGE.
- * Comisión OTA, Fondo FARA, Comisión Smart Stay e Impuesto usan los % editables de "parámetros
- * avanzados"; el resto de partidas son fijas (fuente de verdad) y solo varían por año (inflación).
- * Con los valores por defecto, el resultado coincide exactamente con la hoja HERITAGE.
+ * Desglose P&G escalado a la participación del inversionista, replicando fila por fila la
+ * sección "GASTOS PROYECTADOS" de la hoja HERITAGE. Las ventas y las partidas que son % de
+ * ventas (comisión canales, FARA, costos de operación, bolsa de empleo, marketing, fee
+ * operador comercial) escalan por la cuota del inversionista dentro de SU tipología
+ * (N° unidades / unidades de esa tipología). Energía, agua, gas, internet, papelería,
+ * honorarios, fee administración, aseo, lavandería, Sayco y Acimpro, PMS y Chanel Manager y
+ * Otros Gastos Operativos (Anexo 3) son POR APARTAMENTO (base mensual × 12 × N apartamentos,
+ * con inflación de costos por año); aseo, lavandería, Sayco, PMS y Otros Gastos Operativos
+ * además varían por escenario (Pesimista = valor base/mes, Conservador = Pesimista +X%,
+ * Optimista = Conservador +X%, ver cada constante en data.ts para el % exacto). Comisión
+ * canales, Fondo FARA, Fee Operador comercial e Impuesto usan los % editables de "parámetros
+ * avanzados"; el resto de partidas son fijas (fuente de verdad) y solo varían por año
+ * (inflación) o por escenario (energía/agua/gas según ocupación, aseo/lavandería/sayco/PMS/
+ * otros gastos según el valor base del escenario).
  */
 export function calcularDesglose(params: {
   escenario: Escenario;
@@ -173,10 +204,10 @@ export function calcularDesglose(params: {
   advancedParams?: AdvancedParams;
   diasEfectivos?: number;
   ocupacion?: number;
+  adrOverride?: Partial<Record<Tipologia, number>>;
 }): DesglosePYG {
   const { escenario, tipologia, anio, nUnidades } = params;
   const adv = params.advancedParams ?? ADVANCED_PARAMS_DEFAULT;
-  const dias = params.diasEfectivos ?? DIAS_EFECTIVOS;
   const ocupacion = params.ocupacion ?? OCUPACION[escenario][anio];
 
   const tipologias: Tipologia[] = tipologia === "mixto" ? ["1hab", "2hab"] : [tipologia];
@@ -186,82 +217,125 @@ export function calcularDesglose(params: {
   let ventas1Hab = 0;
   let ventas2Hab = 0;
   let ventasBrutas = 0;
-  let comisionOTA = 0;
+  let comisionCanales = 0;
   let fondoFARA = 0;
+  let costosOperacion = 0;
+  let bolsaEmpleo = 0;
   let marketing = 0;
-  let comisionSmartStay = 0;
-  const fijos: Record<keyof typeof GASTOS_FIJOS_ANUAL, number> = Object.fromEntries(
-    GASTOS_FIJOS_KEYS.map((k) => [k, 0])
-  ) as Record<keyof typeof GASTOS_FIJOS_ANUAL, number>;
+  let operadorComercialFee = 0;
+  let energia = 0;
+  let agua = 0;
+  let gas = 0;
+  let internet = 0;
+  let feeAdministracion = 0;
+  let papeleria = 0;
+  let honorariosContables = 0;
+  let sayco = 0;
+  let pmsChanelManager = 0;
+  let otrosGastosOperativos = 0;
+  let aseo = 0;
+  let lavanderia = 0;
+
+  // Energía/Agua/Gas/Internet/Fee Administración/Papelería/Honorarios Contables son POR
+  // APARTAMENTO (cada unidad tiene su propio consumo/línea/cuota), no un total fijo del
+  // edificio: en vivo = base mensual (a 100% ocupación) × % ocupación actual × 12 × N
+  // apartamentos, con inflación de costos compuesta por año. Solo Energía/Agua/Gas dependen
+  // de la ocupación. Reaccionan tanto a la ocupación editada como al N° de unidades.
+  const inflacion = (1 + INFLACION_COSTOS_ANUAL) ** (anio - 1);
+  const energiaPorApto = ENERGIA_BASE_MENSUAL * ocupacion * 12 * inflacion;
+  const aguaPorApto = AGUA_BASE_MENSUAL * ocupacion * 12 * inflacion;
+  const gasPorApto = GAS_BASE_MENSUAL * ocupacion * 12 * inflacion;
+  const internetPorApto = INTERNET_BASE_MENSUAL * 12 * inflacion;
+  const feeAdministracionPorApto = FEE_ADMINISTRACION_MENSUAL * 12 * inflacion;
+  const papeleriaPorApto = PAPELERIA_BASE_MENSUAL * 12 * inflacion;
+  const honorariosContablesPorApto = HONORARIOS_CONTABLES_BASE_MENSUAL * 12 * inflacion;
+  const saycoPorApto = SAYCO_BASE_MENSUAL[escenario] * 12 * inflacion;
+  const pmsChanelManagerPorApto = PMS_CHANEL_MANAGER_BASE_MENSUAL[escenario] * 12 * inflacion;
+  const otrosGastosOperativosPorApto = OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL[escenario] * 12 * inflacion;
+  const aseoPorApto = ASEO_BASE_MENSUAL[escenario] * 12 * inflacion;
+  const lavanderiaPorApto = LAVANDERIA_BASE_MENSUAL[escenario] * 12 * inflacion;
 
   for (const t of tipologias) {
     const unidadesT = unidadesDe(t);
     const nT = splits[t] ?? 0;
     const share = unidadesT > 0 ? nT / unidadesT : 0;
-    const ventasT = ingresoTipologia(escenario, t, anio, dias, ocupacion) * share;
-    const participT = participacionPool(escenario, t, anio);
+    const dias = params.diasEfectivos ?? DIAS_BASE[t];
+    const adr = params.adrOverride?.[t];
+    const ventasT = ingresoTipologia(escenario, t, anio, dias, ocupacion, adr) * share;
 
     if (t === "1hab") ventas1Hab += ventasT;
     else ventas2Hab += ventasT;
 
     ventasBrutas += ventasT;
-    comisionOTA += ventasT * adv.otaPct;
+    comisionCanales += ventasT * adv.comisionCanalesPct;
     fondoFARA += ventasT * adv.faraPct;
+    costosOperacion += ventasT * COSTOS_OPERACION_PCT;
+    bolsaEmpleo += ventasT * BOLSA_EMPLEO_PCT;
     marketing += ventasT * MARKETING_PCT;
-    comisionSmartStay += ventasT * adv.smartStayFeePct;
-
-    for (const key of GASTOS_FIJOS_KEYS) {
-      fijos[key] += GASTOS_FIJOS_ANUAL[key][anio] * participT * share;
-    }
+    operadorComercialFee += ventasT * adv.operadorComercialFeePct;
+    energia += energiaPorApto * nT;
+    agua += aguaPorApto * nT;
+    gas += gasPorApto * nT;
+    internet += internetPorApto * nT;
+    feeAdministracion += feeAdministracionPorApto * nT;
+    papeleria += papeleriaPorApto * nT;
+    honorariosContables += honorariosContablesPorApto * nT;
+    sayco += saycoPorApto * nT;
+    pmsChanelManager += pmsChanelManagerPorApto * nT;
+    otrosGastosOperativos += otrosGastosOperativosPorApto * nT;
+    aseo += aseoPorApto * nT;
+    lavanderia += lavanderiaPorApto * nT;
   }
 
-  const totalCostoVentas = comisionOTA + fondoFARA;
+  const totalCostoVentas = comisionCanales + fondoFARA;
   const utilidadBruta = ventasBrutas - totalCostoVentas;
 
   const totalGastosOperacion =
+    costosOperacion +
+    bolsaEmpleo +
     marketing +
-    comisionSmartStay +
-    fijos.nomina +
-    fijos.bolsaEmpleo +
-    fijos.serviciosPublicos +
-    fijos.tecnologia +
-    fijos.operacionSuministros +
-    fijos.domotica +
-    fijos.cuotaAdministracion +
-    fijos.seguroResponsabilidadCivil +
-    fijos.honorariosContables +
-    fijos.revisoriaFiscal +
-    fijos.otrosGastosOperativos +
-    fijos.segurosYLicencias +
-    fijos.feeBase;
+    operadorComercialFee +
+    energia +
+    agua +
+    gas +
+    internet +
+    feeAdministracion +
+    papeleria +
+    aseo +
+    lavanderia +
+    honorariosContables +
+    sayco +
+    pmsChanelManager +
+    otrosGastosOperativos;
 
   const utilidadOperacional = utilidadBruta - totalGastosOperacion;
-  const impuestoRenta = utilidadOperacional * adv.impuestoPct;
+  const impuestoRenta = Math.max(utilidadOperacional, 0) * adv.impuestoPct;
   const utilidadNeta = utilidadOperacional - impuestoRenta;
 
   return {
     ventas1Hab,
     ventas2Hab,
     ventasBrutas,
-    comisionOTA,
+    comisionCanales,
     fondoFARA,
     totalCostoVentas,
     utilidadBruta,
-    nomina: fijos.nomina,
-    bolsaEmpleo: fijos.bolsaEmpleo,
-    serviciosPublicos: fijos.serviciosPublicos,
-    tecnologia: fijos.tecnologia,
-    operacionSuministros: fijos.operacionSuministros,
+    costosOperacion,
+    bolsaEmpleo,
     marketing,
-    domotica: fijos.domotica,
-    cuotaAdministracion: fijos.cuotaAdministracion,
-    seguroResponsabilidadCivil: fijos.seguroResponsabilidadCivil,
-    honorariosContables: fijos.honorariosContables,
-    revisoriaFiscal: fijos.revisoriaFiscal,
-    otrosGastosOperativos: fijos.otrosGastosOperativos,
-    segurosYLicencias: fijos.segurosYLicencias,
-    comisionSmartStay,
-    feeBase: fijos.feeBase,
+    operadorComercialFee,
+    feeAdministracion,
+    energia,
+    agua,
+    gas,
+    internet,
+    papeleria,
+    aseo,
+    lavanderia,
+    honorariosContables,
+    sayco,
+    pmsChanelManager,
+    otrosGastosOperativos,
     totalGastosOperacion,
     utilidadOperacional,
     impuestoRenta,
@@ -290,6 +364,8 @@ export function simular(params: {
   diasEfectivos?: number;
   ocupacion?: number;
   ocupacionAnio3?: number;
+  adrOverride?: Partial<Record<Tipologia, number>>;
+  adrOverrideAnio3?: Partial<Record<Tipologia, number>>;
 }): ResultadoSimulacion {
   const {
     escenario,
@@ -302,9 +378,20 @@ export function simular(params: {
     diasEfectivos,
     ocupacion,
     ocupacionAnio3,
+    adrOverride,
+    adrOverrideAnio3,
   } = params;
 
-  const desglose = calcularDesglose({ escenario, tipologia, anio, nUnidades, advancedParams, diasEfectivos, ocupacion });
+  const desglose = calcularDesglose({
+    escenario,
+    tipologia,
+    anio,
+    nUnidades,
+    advancedParams,
+    diasEfectivos,
+    ocupacion,
+    adrOverride,
+  });
   const fara = incluirFara ? faraAcumuladoInversionista(escenario, anio as AnioFara, nUnidades) : 0;
   const utilidadTotalConFara = desglose.utilidadNeta + fara;
 
@@ -319,6 +406,7 @@ export function simular(params: {
     advancedParams,
     diasEfectivos,
     ocupacion: ocupacionAnio3,
+    adrOverride: adrOverrideAnio3,
   });
   const paybackAnios =
     desgloseMaduracion.utilidadNeta > 0 ? montoInvertido / desgloseMaduracion.utilidadNeta : null;

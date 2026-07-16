@@ -11,19 +11,19 @@ interface FieldConfig {
 
 const FIELDS: FieldConfig[] = [
   {
-    key: "otaPct",
-    label: "Comisión OTAs (% sobre ventas)",
-    help: "Base sugerida 18% sobre ingresos por reservas en plataformas de distribución (Booking, Expedia, Airbnb).",
+    key: "comisionCanalesPct",
+    label: "Comisión canales (% sobre ventas)",
+    help: "Base sugerida 15% sobre ingresos por reservas en canales de distribución (Booking, Airbnb, Web, Agencias).",
   },
   {
     key: "faraPct",
     label: "Fondo FARA (% sobre ventas)",
-    help: "Base sugerida 3% sobre ventas, destinado a mantenimiento. Mientras no se usa, genera 9% E.A. adicional.",
+    help: "Base sugerida 2% sobre ventas, destinado a reposición y reparación. Mientras no se usa, genera 9% E.A. adicional.",
   },
   {
-    key: "smartStayFeePct",
-    label: "Comisión Smart Stay (% sobre ventas)",
-    help: "Base sugerida 12%; fee variable de operación hotelera, más un fee base mensual por unidad.",
+    key: "operadorComercialFeePct",
+    label: "Fee Operador comercial (% sobre ventas)",
+    help: "Base sugerida 10%; fee variable de operación comercial del proyecto.",
   },
   {
     key: "impuestoPct",

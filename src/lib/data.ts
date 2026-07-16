@@ -1,5 +1,9 @@
-// Fuente de verdad: modelo financiero real, hoja "HERITAGE".
+// Fuente de verdad: modelo financiero real, hoja "HERITAGE" (archivo "Hertitage Nuevo.xlsx").
 // Todas las cifras en COP. No inventar ni alterar estos valores.
+// El Excel solo define explícitamente el Año 1 por escenario (ocupación fija + ADR por
+// tipología). Los Años 2 y 3 se proyectan aplicando los supuestos propios del Excel:
+// "Crecimiento tarifa anual (ADR)" 5%/año e "Inflación costos fijos" 5%/año, con
+// ocupación constante (el Excel no define una curva de rampa de ocupación).
 
 export type Escenario = "pesimista" | "conservador" | "optimista";
 export type Tipologia = "1hab" | "2hab";
@@ -17,34 +21,53 @@ export const TIPOLOGIAS: { id: Tipologia; label: string; unidades: number }[] = 
 ];
 
 export const UNIDADES_TOTALES = 108;
-export const DIAS_EFECTIVOS = 350;
+
+// Días comercializables base por tipología (hoja HERITAGE, fila "Base de los Días").
+// Ambas tipologías usan 365 días: es el valor que la fórmula de "Ventas de Hospedajes"
+// del Excel realmente referencia (celda E19). Existe una celda de referencia con 305 días
+// (365 - 60 días de goce del propietario) pero NO está conectada a ninguna fórmula de
+// ingresos del modelo, por eso no se usa aquí.
+export const DIAS_BASE: Record<Tipologia, number> = { "1hab": 365, "2hab": 365 };
+
+// Valor usado como referencia/reset en el slider de "días efectivos" del simulador.
+export const DIAS_EFECTIVOS = 365;
+
 export const CRECIMIENTO_ADR_ANUAL = 0.05;
 export const INFLACION_COSTOS_ANUAL = 0.05;
-export const FACTOR_PRESTACIONAL = 1.45;
 export const IMPUESTO_RENTA = 0.35;
-export const COMISION_OTA = 0.18;
-export const FEE_VARIABLE_SMART_STAY = 0.12;
-export const FEE_BASE_1HAB = 400_000;
-export const FEE_BASE_2HAB = 460_000;
-export const MARKETING_PCT = 0.01;
-export const FARA_PCT = 0.03;
+
+// Comisión canales de venta (Booking, Airbnb, Web, Agencias + 20 canales)
+export const COMISION_CANALES = 0.15;
+// FARA — Fondo de Reposición y Reparación (% sobre ventas)
+export const FARA_PCT = 0.02;
 export const FARA_TASA_EA = 0.09;
+// Costos de Operación (Nómina Personal, Variables, Dotación) — % sobre ventas
+export const COSTOS_OPERACION_PCT = 0.07;
+// Bolsa de Empleo = 10% de Costos de Operación => 0.7% sobre ventas
+export const BOLSA_EMPLEO_PCT = COSTOS_OPERACION_PCT * 0.1;
+export const MARKETING_PCT = 0.01;
+// Operación Fee Operador comercial — % sobre ventas
+export const OPERADOR_COMERCIAL_FEE_PCT = 0.1;
+// Comisión Fee Administración — fijo mensual POR APARTAMENTO (no varía por escenario ni por
+// ocupación); se calcula en vivo como base × 12 × N apartamentos, igual que Energía/Agua/Gas/
+// Internet, no como un total del edificio repartido entre las 108 unidades.
+export const FEE_ADMINISTRACION_MENSUAL = 850_000;
 
 // Tasa de cambio de referencia COP/USD, editable en el simulador (solo afecta visualización).
 export const TASA_CAMBIO_REFERENCIA = 4050;
 
 export interface AdvancedParams {
-  otaPct: number;
+  comisionCanalesPct: number;
   faraPct: number;
-  smartStayFeePct: number;
+  operadorComercialFeePct: number;
   impuestoPct: number;
 }
 
-// Valores base del modelo (sección 3 del prompt maestro). Editables en "Parámetros avanzados".
+// Valores base del modelo (hoja HERITAGE). Editables en "Parámetros avanzados".
 export const ADVANCED_PARAMS_DEFAULT: AdvancedParams = {
-  otaPct: COMISION_OTA,
+  comisionCanalesPct: COMISION_CANALES,
   faraPct: FARA_PCT,
-  smartStayFeePct: FEE_VARIABLE_SMART_STAY,
+  operadorComercialFeePct: OPERADOR_COMERCIAL_FEE_PCT,
   impuestoPct: IMPUESTO_RENTA,
 };
 
@@ -57,95 +80,146 @@ export const PRECIO_VENTA_REFERENCIA: Record<Tipologia, number> = {
   "2hab": 650_000_000,
 };
 
-// % de Ocupación por escenario y año
+// % de Ocupación por escenario. El Excel solo define un valor estable por escenario
+// (sin curva de rampa por año); se mantiene constante en los 3 años.
 export const OCUPACION: Record<Escenario, Record<Anio, number>> = {
-  pesimista: { 1: 0.35, 2: 0.4, 3: 0.45 },
-  conservador: { 1: 0.5, 2: 0.55, 3: 0.6 },
-  optimista: { 1: 0.65, 2: 0.7, 3: 0.75 },
+  pesimista: { 1: 0.55, 2: 0.55, 3: 0.55 },
+  conservador: { 1: 0.65, 2: 0.65, 3: 0.65 },
+  optimista: { 1: 0.75, 2: 0.75, 3: 0.75 },
 };
 
-// ADR — tarifa promedio diaria por tipología (COP)
+// ADR — tarifa promedio diaria por tipología (COP). Año 1 = base del Excel;
+// Años 2-3 = Año 1 compuesto a 5% anual (CRECIMIENTO_ADR_ANUAL).
 export const ADR: Record<Escenario, Record<Tipologia, Record<Anio, number>>> = {
   pesimista: {
-    "1hab": { 1: 480_000, 2: 504_000, 3: 529_200 },
-    "2hab": { 1: 550_000, 2: 577_500, 3: 606_375 },
+    "1hab": { 1: 580_000, 2: 609_000, 3: 639_450 },
+    "2hab": { 1: 750_000, 2: 787_500, 3: 826_875 },
   },
   conservador: {
-    "1hab": { 1: 528_000, 2: 554_400, 3: 582_120 },
-    "2hab": { 1: 605_000, 2: 635_250, 3: 667_012.5 },
+    "1hab": { 1: 620_000, 2: 651_000, 3: 683_550 },
+    "2hab": { 1: 840_000, 2: 882_000, 3: 926_100 },
   },
   optimista: {
-    "1hab": { 1: 633_600, 2: 665_280, 3: 698_544 },
-    "2hab": { 1: 726_000, 2: 762_300, 3: 800_415 },
+    "1hab": { 1: 680_000, 2: 714_000, 3: 749_700 },
+    "2hab": { 1: 900_000, 2: 945_000, 3: 992_250 },
   },
 };
 
-// Ingresos totales proyectados (COP) — fuente de verdad
+// Ingresos totales proyectados (COP) — fuente de verdad, edificio completo (108 unidades)
 export const INGRESOS_TOTALES: Record<Escenario, Record<Anio, number>> = {
-  pesimista: { 1: 6_659_100_000, 2: 7_990_920_000, 3: 9_439_274_250 },
-  conservador: { 1: 10_464_300_000, 2: 12_086_266_500, 3: 13_844_268_900 },
-  optimista: { 1: 16_324_308_000, 2: 18_459_025_200, 3: 20_766_403_350 },
+  pesimista: { 1: 13_803_570_000, 2: 14_493_748_500, 3: 15_218_435_925 },
+  conservador: { 1: 17_765_280_000, 2: 18_653_544_000, 3: 19_586_221_200 },
+  optimista: { 1: 22_272_300_000, 2: 23_385_915_000, 3: 24_555_210_750 },
 };
 
-// Gastos totales proyectados (COP) — fuente de verdad
+// Gastos totales proyectados (COP) — costo de ventas + gastos de operación, edificio completo
 export const GASTOS_TOTALES: Record<Escenario, Record<Anio, number>> = {
-  pesimista: { 1: 6_518_988_000, 2: 7_184_551_500, 3: 7_900_373_880 },
-  conservador: { 1: 7_812_756_000, 2: 8_576_969_310, 3: 9_398_072_061 },
-  optimista: { 1: 9_805_158_720, 2: 10_743_707_268, 3: 11_751_597_774 },
+  pesimista: { 1: 5_275_864_490, 2: 5_539_657_715, 3: 5_816_640_600 },
+  conservador: { 1: 6_692_234_960, 2: 7_026_846_708, 3: 7_378_189_043 },
+  optimista: { 1: 8_303_281_100, 2: 8_718_445_155, 3: 9_154_367_413 },
 };
 
-// Utilidad Neta (después de impuesto de renta 35%) (COP) — fuente de verdad
+// Utilidad Neta (después de impuesto de renta 35%) (COP), edificio completo
 export const UTILIDAD_NETA: Record<Escenario, Record<Anio, number>> = {
-  pesimista: { 1: 91_072_800, 2: 524_139_525, 3: 1_000_285_240 },
-  conservador: { 1: 1_723_503_600, 2: 2_281_043_173, 3: 2_890_027_945 },
-  optimista: { 1: 4_237_447_032, 2: 5_014_956_656, 3: 5_859_623_624 },
+  pesimista: { 1: 5_543_008_582, 2: 5_820_159_011, 3: 6_111_166_961 },
+  conservador: { 1: 7_197_479_276, 2: 7_557_353_240, 3: 7_935_220_902 },
+  optimista: { 1: 9_079_862_285, 2: 9_533_855_399, 3: 10_010_548_169 },
 };
 
-// Margen Neto (%) — fuente de verdad
+// Margen Neto (%) — se mantiene prácticamente constante entre años porque ingresos y
+// gastos crecen a la misma tasa (5%/año) en este modelo.
 export const MARGEN_NETO: Record<Escenario, Record<Anio, number>> = {
-  pesimista: { 1: 0.0137, 2: 0.0656, 3: 0.106 },
-  conservador: { 1: 0.1647, 2: 0.1887, 3: 0.2088 },
-  optimista: { 1: 0.2596, 2: 0.2717, 3: 0.2822 },
+  pesimista: { 1: 0.4016, 2: 0.4016, 3: 0.4016 },
+  conservador: { 1: 0.4051, 2: 0.4051, 3: 0.4051 },
+  optimista: { 1: 0.4077, 2: 0.4077, 3: 0.4077 },
 };
 
-// Gastos operativos fijos (COP) — filas de la hoja HERITAGE que componen "TOTAL GASTOS"
-// junto con Comisión OTA, Fondo FARA, Marketing y Comisión Smart Stay (estas últimas 4 son
-// % de ventas y varían por escenario, ver ADVANCED_PARAMS_DEFAULT / MARKETING_PCT).
-// Estas partidas NO varían por escenario, solo por año (inflación de costos 5%/año).
-export const GASTOS_FIJOS_ANUAL = {
-  nomina: { 1: 1_202_340_000, 2: 1_262_457_000, 3: 1_325_579_850 },
-  bolsaEmpleo: { 1: 120_234_000, 2: 126_245_700, 3: 132_557_985 },
-  serviciosPublicos: { 1: 492_000_000, 2: 516_600_000, 3: 542_430_000 },
-  tecnologia: { 1: 72_000_000, 2: 75_600_000, 3: 79_380_000 },
-  operacionSuministros: { 1: 396_000_000, 2: 415_800_000, 3: 436_590_000 },
-  domotica: { 1: 0, 2: 0, 3: 0 },
-  cuotaAdministracion: { 1: 648_000_000, 2: 680_400_000, 3: 714_420_000 },
-  seguroResponsabilidadCivil: { 1: 36_000_000, 2: 37_800_000, 3: 39_690_000 },
-  honorariosContables: { 1: 84_000_000, 2: 88_200_000, 3: 92_610_000 },
-  revisoriaFiscal: { 1: 36_000_000, 2: 37_800_000, 3: 39_690_000 },
-  otrosGastosOperativos: { 1: 384_000_000, 2: 403_200_000, 3: 423_360_000 },
-  segurosYLicencias: { 1: 240_000_000, 2: 252_000_000, 3: 264_600_000 },
-  feeBase: { 1: 544_320_000, 2: 571_536_000, 3: 600_112_800 },
-} as const satisfies Record<string, Record<Anio, number>>;
+// Lavandería — POR APARTAMENTO (1 y 2 habitaciones usan la misma base), Año 1 de cada
+// escenario. Conservador = Pesimista + 10%; Optimista = Conservador + 10%. Dentro de un
+// mismo escenario, Años 2-3 se escalan igual que el resto de partidas por apartamento
+// (inflación 5%/año, INFLACION_COSTOS_ANUAL).
+export const LAVANDERIA_BASE_MENSUAL: Record<Escenario, number> = {
+  pesimista: 150_000,
+  conservador: 150_000 * 1.1,
+  optimista: 150_000 * 1.1 * 1.1,
+};
+
+// Aseo — POR APARTAMENTO (1 y 2 habitaciones usan la misma base), Año 1 de cada escenario.
+// Conservador = Pesimista + 5%; Optimista = Conservador + 5%. Dentro de un mismo escenario,
+// Años 2-3 se escalan igual que el resto de partidas por apartamento (inflación 5%/año,
+// INFLACION_COSTOS_ANUAL).
+export const ASEO_BASE_MENSUAL: Record<Escenario, number> = {
+  pesimista: 170_000,
+  conservador: 170_000 * 1.05,
+  optimista: 170_000 * 1.05 * 1.05,
+};
+
+// Sayco y Acimpro — POR APARTAMENTO (1 y 2 habitaciones usan la misma base), Año 1 de cada
+// escenario. Conservador = Pesimista + 5%; Optimista = Conservador + 5%. Dentro de un mismo
+// escenario, Años 2-3 se escalan igual que el resto de partidas por apartamento (inflación
+// 5%/año, INFLACION_COSTOS_ANUAL).
+export const SAYCO_BASE_MENSUAL: Record<Escenario, number> = {
+  pesimista: 15_000,
+  conservador: 15_000 * 1.05,
+  optimista: 15_000 * 1.05 * 1.05,
+};
+
+// PMS y Chanel Manager — POR APARTAMENTO (1 y 2 habitaciones usan la misma base), Año 1 de
+// cada escenario. Conservador = Pesimista + 5%; Optimista = Conservador + 5%. Dentro de un
+// mismo escenario, Años 2-3 se escalan igual que el resto de partidas por apartamento
+// (inflación 5%/año, INFLACION_COSTOS_ANUAL).
+export const PMS_CHANEL_MANAGER_BASE_MENSUAL: Record<Escenario, number> = {
+  pesimista: 29_167,
+  conservador: 29_167 * 1.05,
+  optimista: 29_167 * 1.05 * 1.05,
+};
+
+// Otros Gastos Operativos (Anexo 3) — POR APARTAMENTO (1 y 2 habitaciones usan la misma
+// base), Año 1 de cada escenario. Conservador = Pesimista + 5%; Optimista = Conservador +
+// 5%. Dentro de un mismo escenario, Años 2-3 se escalan igual que el resto de partidas por
+// apartamento (inflación 5%/año, INFLACION_COSTOS_ANUAL).
+export const OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL: Record<Escenario, number> = {
+  pesimista: 247_222,
+  conservador: 247_222 * 1.05,
+  optimista: 247_222 * 1.05 * 1.05,
+};
+
+// Servicios públicos — Energía, Agua, Gas e Internet (COP) SON POR APARTAMENTO, no un total
+// fijo del edificio: cada unidad tiene su propio consumo/línea. El gasto se calcula EN VIVO
+// como `base mensual × % ocupación actual × 12 × N apartamentos` (Internet no depende de la
+// ocupación, solo de N apartamentos), escalado por inflación de costos (5%/año) según el año.
+// Por eso reaccionan tanto al % de ocupación editado como al N° de unidades simuladas.
+export const ENERGIA_BASE_MENSUAL = 1_000_000;
+export const AGUA_BASE_MENSUAL = 450_000;
+export const GAS_BASE_MENSUAL = 250_000;
+export const INTERNET_BASE_MENSUAL = 80_000;
+
+// Papelería y Honorarios Firma Contable y Revisoría Fiscal también son fijos POR APARTAMENTO
+// (no se reparten desde un total del edificio), igual que Fee Administración.
+export const PAPELERIA_BASE_MENSUAL = 50_000;
+export const HONORARIOS_CONTABLES_BASE_MENSUAL = 70_000;
 
 // Utilidad Neta por unidad — Año 3 (maduración), tal como reporta el modelo
 export const UTILIDAD_POR_UNIDAD_ANIO3: Record<Escenario, Record<Tipologia, number>> = {
-  pesimista: { "1hab": 8_832_541, "2hab": 10_120_620 },
-  conservador: { "1hab": 25_519_011, "2hab": 29_240_533 },
-  optimista: { "1hab": 51_740_606, "2hab": 59_286_111 },
+  pesimista: { "1hab": 51_548_529, "2hab": 66_657_580 },
+  conservador: { "1hab": 65_702_951, "2hab": 89_016_901 },
+  optimista: { "1hab": 83_667_315, "2hab": 110_736_152 },
 };
 
-// Fondo FARA — Rendimiento acumulado por propietario (COP), 5 años, 9% E.A.
+// Fondo FARA — Rendimiento acumulado por propietario (COP, base promedio por unidad del
+// edificio), 5 años, 9% E.A. Contribución anual = 2% de ventas (FARA_PCT), año 4-5 usan
+// la contribución del Año 3 (maduración) mientras el fondo sigue rindiendo 9% E.A.
 export type AnioFara = 1 | 2 | 3 | 4 | 5;
 export const FARA_ACUMULADO_POR_PROPIETARIO: Record<Escenario, Record<AnioFara, number>> = {
-  pesimista: { 1: 1_932_989, 2: 4_426_544, 3: 7_564_945, 4: 11_205_002, 5: 15_409_402 },
-  conservador: { 1: 3_037_554, 2: 6_819_308, 3: 11_451_730, 4: 16_822_563, 5: 23_023_987 },
-  optimista: { 1: 4_738_584, 2: 10_523_301, 3: 17_498_424, 4: 25_583_549, 5: 34_917_158 },
+  pesimista: { 1: 2_556_217, 2: 5_470_304, 3: 8_780_860, 4: 12_389_366, 5: 16_322_638 },
+  conservador: { 1: 3_289_867, 2: 7_040_315, 3: 11_301_021, 4: 15_945_191, 5: 21_007_336 },
+  optimista: { 1: 4_124_500, 2: 8_826_430, 3: 14_168_070, 4: 19_990_457, 5: 26_336_860 },
 };
 
-// ANEXO 1 — Detalle de nómina (costo mensual, Año 1 base). Fuente: hoja HERITAGE, filas 74-96.
-// Los cargos marcados "incluido en fee Smart Stay" están cubiertos por la Comisión Smart Stay
-// (variable) y el Fee base, por eso su costo mensual directo es 0 en este anexo.
+// ANEXO 1 — Detalle de nómina (costo mensual, Año 1 base). Fuente: hoja HERITAGE, filas 69-88.
+// Es un anexo de referencia: NO se suma al P&G principal (el costo de personal ya está
+// cubierto por "Costos de Operación" = 7% de ventas). Los cargos marcados "incluido en fee
+// Smart Stay" están cubiertos por comisiones/fees variables, por eso su costo mensual directo es 0.
 export interface AnexoNominaRow {
   cargo: string;
   cantidad: number;
@@ -156,53 +230,40 @@ export interface AnexoNominaRow {
 export const ANEXO_NOMINA: AnexoNominaRow[] = [
   { cargo: "Revenue Manager (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 3_000_000, costoMensual: 0 },
   { cargo: "Operadora de Reservas (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 3_000_000, costoMensual: 0 },
-  { cargo: "Equipo Comercial (incluido en fee Smart Stay)", cantidad: 4, salarioMensual: 2_500_000, costoMensual: 0 },
-  { cargo: "Operación Diaria de canales (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 0 },
+  { cargo: "Equipo Comercial (incluido en fee Smart Stay)", cantidad: 3, salarioMensual: 2_500_000, costoMensual: 0 },
+  { cargo: "Operación Diaria de canales (incluido en fee Smart Stay)", cantidad: 1, salarioMensual: 2_000_000, costoMensual: 0 },
   { cargo: "Contac Center y Atención al cliente (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 0 },
   { cargo: "Desarrolladores e Innovación (incluido en fee Smart Stay)", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 0 },
-  { cargo: "Gerente General", cantidad: 1, salarioMensual: 4_800_000, costoMensual: 6_960_000 },
-  { cargo: "Administrador", cantidad: 1, salarioMensual: 3_500_000, costoMensual: 5_075_000 },
-  { cargo: "Recepcionistas", cantidad: 4, salarioMensual: 2_200_000, costoMensual: 12_760_000 },
-  { cargo: "Auditor Nocturno", cantidad: 1, salarioMensual: 2_200_000, costoMensual: 3_190_000 },
-  { cargo: "Botones", cantidad: 4, salarioMensual: 2_000_000, costoMensual: 11_600_000 },
-  { cargo: "Camareras", cantidad: 6, salarioMensual: 2_000_000, costoMensual: 17_400_000 },
-  { cargo: "Mantenimiento", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 5_800_000 },
-  { cargo: "Ama de Llaves", cantidad: 1, salarioMensual: 2_000_000, costoMensual: 2_900_000 },
-  { cargo: "Supervisora", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 5_800_000 },
-  { cargo: "Coordinadora de Calidad", cantidad: 1, salarioMensual: 2_900_000, costoMensual: 4_205_000 },
-  { cargo: "Coordinador SST (SG-SST)", cantidad: 1, salarioMensual: 2_900_000, costoMensual: 4_205_000 },
-  { cargo: "Salvavidas - Club de Playa", cantidad: 2, salarioMensual: 2_500_000, costoMensual: 7_250_000 },
-  { cargo: "Personal de Playa - Servicios de atención", cantidad: 2, salarioMensual: 2_500_000, costoMensual: 7_250_000 },
-  { cargo: "Concierge", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 5_800_000 },
+  { cargo: "Gerente General", cantidad: 1, salarioMensual: 4_800_000, costoMensual: 7_288_896 },
+  { cargo: "Administrador", cantidad: 1, salarioMensual: 3_500_000, costoMensual: 5_314_820 },
+  { cargo: "Auditor Nocturno", cantidad: 1, salarioMensual: 2_200_000, costoMensual: 3_340_744 },
+  { cargo: "Camareras", cantidad: 4, salarioMensual: 2_000_000, costoMensual: 12_148_160 },
+  { cargo: "Mantenimiento", cantidad: 1, salarioMensual: 2_000_000, costoMensual: 3_307_040 },
+  { cargo: "Ama de Llaves", cantidad: 1, salarioMensual: 2_000_000, costoMensual: 3_307_040 },
+  { cargo: "Supervisora", cantidad: 1, salarioMensual: 2_000_000, costoMensual: 3_307_040 },
+  { cargo: "Concierge", cantidad: 2, salarioMensual: 2_000_000, costoMensual: 6_074_080 },
 ];
 
-export const ANEXO_NOMINA_TOTAL_CANTIDAD = 44;
-export const ANEXO_NOMINA_TOTAL_MENSUAL = 100_195_000;
+export const ANEXO_NOMINA_TOTAL_CANTIDAD = 12;
+export const ANEXO_NOMINA_TOTAL_MENSUAL = 43_277_820;
 
-// ANEXO 3 — Otros gastos operativos (costo mensual). Fuente: hoja HERITAGE, filas 114-130.
+// ANEXO 3 — Otros gastos operativos (costo mensual). Fuente: hoja HERITAGE, filas 89-100.
 export interface AnexoOtrosGastosRow {
   concepto: string;
   valorMensual: number;
 }
 
 export const ANEXO_OTROS_GASTOS: AnexoOtrosGastosRow[] = [
-  { concepto: "Flores y decoración", valorMensual: 1_500_000 },
-  { concepto: "Servicios de minibar", valorMensual: 2_000_000 },
-  { concepto: "Gastos médicos (exámenes ocupacionales)", valorMensual: 800_000 },
-  { concepto: "Bonificaciones", valorMensual: 2_000_000 },
-  { concepto: "Servicios de ambulancia", valorMensual: 800_000 },
-  { concepto: "Alimentación de empleados", valorMensual: 3_000_000 },
+  { concepto: "Gastos médicos (exámenes ocupacionales)", valorMensual: 900_000 },
+  { concepto: "Servicios de ambulancia", valorMensual: 400_000 },
   { concepto: "Licencias", valorMensual: 1_500_000 },
-  { concepto: "Autocord", valorMensual: 500_000 },
-  { concepto: "Agremiación (ASOTELCA / gremio)", valorMensual: 600_000 },
+  { concepto: "Autocord", valorMensual: 1_500_000 },
+  { concepto: "Agremiación (ASOTELCA / gremio)", valorMensual: 400_000 },
   { concepto: "Costos por datáfonos", valorMensual: 2_000_000 },
-  { concepto: "Servicios musicales (música ambiental)", valorMensual: 700_000 },
-  { concepto: "Otros", valorMensual: 1_000_000 },
-  { concepto: "Lancha Deportiva (12 Viajes Diarios)", valorMensual: 15_000_000 },
-  { concepto: "Ambientadores", valorMensual: 600_000 },
+  { concepto: "Lancha Deportiva (12 Viajes Diarios)", valorMensual: 20_000_000 },
 ];
 
-export const ANEXO_OTROS_GASTOS_TOTAL_MENSUAL = 32_000_000;
+export const ANEXO_OTROS_GASTOS_TOTAL_MENSUAL = 26_700_000;
 
 export const DISCLAIMER =
   "Cifras basadas en proyecciones financieras del modelo operativo de Smart Stay. No constituyen garantía de rentabilidad. Rentabilidades pasadas o proyectadas no aseguran resultados futuros.";

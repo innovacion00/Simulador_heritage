@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AdvancedParams, Anio, ESCENARIOS, Escenario } from "@/lib/data";
+import { AdvancedParams, Anio, ESCENARIOS, Escenario, Tipologia } from "@/lib/data";
 import { DesglosePYG, Moneda, TipologiaSeleccion, calcularDesglose, formatCompact, formatMoney } from "@/lib/calculations";
 
 const COST_COLORS = ["#3fa4dd", "#c6a15b", "#8a6d3b", "#b5723a", "#2f6d5c"];
@@ -66,26 +66,27 @@ function IngresosGastosUtilidadChart({
 
 function CostDistributionDonut({ desglose, moneda, tasaCambio }: { desglose: DesglosePYG; moneda: Moneda; tasaCambio: number }) {
   const gastosFijos =
-    desglose.nomina +
     desglose.bolsaEmpleo +
-    desglose.serviciosPublicos +
-    desglose.tecnologia +
-    desglose.operacionSuministros +
-    desglose.domotica +
-    desglose.cuotaAdministracion +
-    desglose.seguroResponsabilidadCivil +
+    desglose.feeAdministracion +
+    desglose.energia +
+    desglose.agua +
+    desglose.gas +
+    desglose.internet +
+    desglose.papeleria +
+    desglose.aseo +
+    desglose.lavanderia +
     desglose.honorariosContables +
-    desglose.revisoriaFiscal +
-    desglose.otrosGastosOperativos +
-    desglose.segurosYLicencias +
-    desglose.feeBase;
+    desglose.sayco +
+    desglose.pmsChanelManager +
+    desglose.otrosGastosOperativos;
 
   const data = [
-    { name: "Comisión OTAs", value: desglose.comisionOTA },
+    { name: "Comisión canales", value: desglose.comisionCanales },
     { name: "Fondo FARA", value: desglose.fondoFARA },
+    { name: "Costos de operación (nómina)", value: desglose.costosOperacion },
     { name: "Marketing", value: desglose.marketing },
-    { name: "Comisión Smart Stay", value: desglose.comisionSmartStay },
-    { name: "Gastos fijos (nómina, admin, servicios...)", value: gastosFijos },
+    { name: "Fee Operador comercial", value: desglose.operadorComercialFee },
+    { name: "Gastos fijos (admin, servicios, otros...)", value: gastosFijos },
   ].filter((d) => d.value > 0);
 
   return (
@@ -117,6 +118,7 @@ function RentabilidadPorEscenarioChart({
   advancedParams,
   diasEfectivos,
   ocupacionPorEscenario,
+  adrOverridePorEscenario,
 }: {
   tipologia: TipologiaSeleccion;
   anio: Anio;
@@ -125,6 +127,7 @@ function RentabilidadPorEscenarioChart({
   advancedParams: AdvancedParams;
   diasEfectivos: number;
   ocupacionPorEscenario: Record<Escenario, number>;
+  adrOverridePorEscenario?: Record<Escenario, Partial<Record<Tipologia, number>>>;
 }) {
   const data = ESCENARIOS.map((e) => {
     const desglose = calcularDesglose({
@@ -135,6 +138,7 @@ function RentabilidadPorEscenarioChart({
       advancedParams,
       diasEfectivos,
       ocupacion: ocupacionPorEscenario[e.id],
+      adrOverride: adrOverridePorEscenario?.[e.id],
     });
     const roi = montoInvertido > 0 ? desglose.utilidadNeta / montoInvertido : 0;
     return { name: e.label, value: roi * 100, fill: ESCENARIO_COLORS[e.id] };
@@ -168,6 +172,7 @@ export function ChartsSection({
   advancedParams,
   diasEfectivos,
   ocupacionPorEscenario,
+  adrOverridePorEscenario,
   moneda,
   tasaCambio,
 }: {
@@ -179,6 +184,7 @@ export function ChartsSection({
   advancedParams: AdvancedParams;
   diasEfectivos: number;
   ocupacionPorEscenario: Record<Escenario, number>;
+  adrOverridePorEscenario?: Record<Escenario, Partial<Record<Tipologia, number>>>;
   moneda: Moneda;
   tasaCambio: number;
 }) {
@@ -200,6 +206,7 @@ export function ChartsSection({
         advancedParams={advancedParams}
         diasEfectivos={diasEfectivos}
         ocupacionPorEscenario={ocupacionPorEscenario}
+        adrOverridePorEscenario={adrOverridePorEscenario}
       />
     </div>
   );
