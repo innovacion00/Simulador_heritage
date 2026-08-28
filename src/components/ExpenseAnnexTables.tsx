@@ -1,5 +1,8 @@
 import {
   ANEXO_NOMINA,
+  ANEXO_NOMINA_SMART_STAY,
+  ANEXO_NOMINA_SMART_STAY_TOTAL_CANTIDAD,
+  ANEXO_NOMINA_SMART_STAY_TOTAL_MENSUAL,
   ANEXO_NOMINA_TOTAL_CANTIDAD,
   ANEXO_NOMINA_TOTAL_MENSUAL,
   ANEXO_OTROS_GASTOS,
@@ -16,14 +19,34 @@ function AnexoNominaTable({ moneda, tasaCambio }: { moneda: Moneda; tasaCambio: 
             <th className="py-3 pr-4 font-medium text-navy/45 text-xs uppercase tracking-wide">Cargo</th>
             <th className="py-3 px-3 font-medium text-navy/45 text-xs uppercase tracking-wide text-right">Cantidad</th>
             <th className="py-3 px-3 font-medium text-navy/45 text-xs uppercase tracking-wide text-right">
-              Salario mensual
+              Salario + prest.
             </th>
             <th className="py-3 pl-3 font-medium text-navy/45 text-xs uppercase tracking-wide text-right">
-              Costo mensual
+              Subtotal mensual
             </th>
           </tr>
         </thead>
         <tbody>
+          {ANEXO_NOMINA_SMART_STAY.map((row) => (
+            <tr key={row.cargo} className="border-b border-navy/5 italic text-navy/40">
+              <td className="py-2.5 pr-4">{row.cargo}</td>
+              <td className="py-2.5 px-3 text-right tabular-nums">{row.cantidad}</td>
+              <td className="py-2.5 px-3 text-right tabular-nums">
+                {formatMoney(row.salarioMensual, moneda, tasaCambio)}
+              </td>
+              <td className="py-2.5 pl-3 text-right tabular-nums">
+                {formatMoney(row.costoMensual, moneda, tasaCambio)}
+              </td>
+            </tr>
+          ))}
+          <tr className="border-b border-navy/5 bg-navy/[0.03] italic text-navy/50">
+            <td className="py-2.5 pr-4 font-semibold">SUBTOTAL EQUIPO SMART STAY (informativo — no se carga al pool)</td>
+            <td className="py-2.5 px-3 text-right font-semibold tabular-nums">{ANEXO_NOMINA_SMART_STAY_TOTAL_CANTIDAD}</td>
+            <td className="py-2.5 px-3" />
+            <td className="py-2.5 pl-3 text-right font-semibold tabular-nums">
+              {formatMoney(ANEXO_NOMINA_SMART_STAY_TOTAL_MENSUAL, moneda, tasaCambio)}
+            </td>
+          </tr>
           {ANEXO_NOMINA.map((row) => (
             <tr key={row.cargo} className="border-b border-navy/5">
               <td className="py-2.5 pr-4 text-navy/70">{row.cargo}</td>
@@ -32,7 +55,7 @@ function AnexoNominaTable({ moneda, tasaCambio }: { moneda: Moneda; tasaCambio: 
                 {formatMoney(row.salarioMensual, moneda, tasaCambio)}
               </td>
               <td className="py-2.5 pl-3 text-right tabular-nums text-navy/70">
-                {row.costoMensual > 0 ? formatMoney(row.costoMensual, moneda, tasaCambio) : "—"}
+                {formatMoney(row.costoMensual, moneda, tasaCambio)}
               </td>
             </tr>
           ))}
@@ -50,7 +73,9 @@ function AnexoNominaTable({ moneda, tasaCambio }: { moneda: Moneda; tasaCambio: 
       </table>
       <p className="text-xs text-navy/40 mt-3">
         Los cargos marcados &ldquo;incluido en fee Smart Stay&rdquo; están cubiertos por la comisión
-        variable y el fee base de Smart Stay, por eso no suman costo mensual directo en este anexo.
+        variable y el fee base de Smart Stay: su subtotal es informativo y no se suma al TOTAL NÓMINA
+        MENSUAL, que es la nómina propia del edificio cargada al pool (fuente de la Nómina
+        Prestacional en el P&amp;G).
       </p>
     </div>
   );

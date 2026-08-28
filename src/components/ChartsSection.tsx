@@ -75,15 +75,21 @@ function CostDistributionDonut({ desglose, moneda, tasaCambio }: { desglose: Des
     desglose.papeleria +
     desglose.aseo +
     desglose.lavanderia +
+    desglose.amenities +
+    desglose.blancosLenceria +
+    desglose.dotacionUniformes +
+    desglose.seguros +
+    desglose.comisionPasarelaPagos +
     desglose.honorariosContables +
     desglose.sayco +
     desglose.pmsChanelManager +
-    desglose.otrosGastosOperativos;
+    desglose.otrosGastosOperativos +
+    desglose.ica;
 
   const data = [
     { name: "Comisión canales", value: desglose.comisionCanales },
     { name: "Fondo FARA", value: desglose.fondoFARA },
-    { name: "Costos de operación (nómina)", value: desglose.costosOperacion },
+    { name: "Nómina Prestacional", value: desglose.costosOperacion },
     { name: "Marketing", value: desglose.marketing },
     { name: "Fee Operador comercial", value: desglose.operadorComercialFee },
     { name: "Gastos fijos (admin, servicios, otros...)", value: gastosFijos },

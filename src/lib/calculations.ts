@@ -3,28 +3,34 @@ import {
   ADVANCED_PARAMS_DEFAULT,
   AdvancedParams,
   AGUA_BASE_MENSUAL,
+  AMENITIES_BASE_MENSUAL,
   Anio,
   ASEO_BASE_MENSUAL,
   AnioFara,
-  BOLSA_EMPLEO_PCT,
-  COSTOS_OPERACION_PCT,
+  BLANCOS_LENCERIA_BASE_MENSUAL,
+  BOLSA_EMPLEO_BASE_MENSUAL,
+  COMISION_PASARELA_PAGOS_PCT,
   DIAS_BASE,
+  DOTACION_UNIFORMES_BASE_MENSUAL,
   ENERGIA_BASE_MENSUAL,
   Escenario,
   FARA_ACUMULADO_POR_PROPIETARIO,
   FEE_ADMINISTRACION_MENSUAL,
   GAS_BASE_MENSUAL,
   HONORARIOS_CONTABLES_BASE_MENSUAL,
+  ICA_PCT,
   INFLACION_COSTOS_ANUAL,
   INTERNET_BASE_MENSUAL,
   LAVANDERIA_BASE_MENSUAL,
   MARKETING_PCT,
+  NOMINA_PRESTACIONAL_BASE_MENSUAL,
   OCUPACION,
   OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL,
   PAPELERIA_BASE_MENSUAL,
   PMS_CHANEL_MANAGER_BASE_MENSUAL,
   PRECIO_VENTA_REFERENCIA,
   SAYCO_BASE_MENSUAL,
+  SEGUROS_BASE_MENSUAL,
   TIPOLOGIAS,
   Tipologia,
   UNIDADES_TOTALES,
@@ -153,11 +159,14 @@ export interface DesglosePYG {
   fondoFARA: number;
   totalCostoVentas: number;
   utilidadBruta: number;
-  // Gastos operativos — costos de operación (nómina/variable/dotación) y bolsa de empleo son
-  // % sobre ventas; el resto son partidas fijas (fuente de verdad) POR APARTAMENTO (base
-  // mensual × 12 × N apartamentos). Energía/Agua/Gas varían por escenario porque se escalan
-  // por el % de ocupación de cada uno; aseo, Sayco, PMS y Otros Gastos Operativos varían por
-  // escenario porque su base mensual cambia por escenario (ver SAYCO_BASE_MENSUAL, etc.).
+  // Gastos operativos — costosOperacion ("Nómina Prestacional"), bolsaEmpleo y el resto de
+  // partidas son fijas (fuente de verdad) POR APARTAMENTO (base mensual × 12 × N
+  // apartamentos); bolsaEmpleo en particular es 10% de la base mensual de Nómina
+  // Prestacional (ver BOLSA_EMPLEO_BASE_MENSUAL en data.ts), no un % de ventas. Energía/Agua/
+  // Gas/Aseo/Lavandería varían por escenario porque se escalan por el % de ocupación de cada
+  // uno ($80.000/mes a 100% ocupación para aseo/lavandería); Sayco y PMS varían por escenario
+  // porque su base mensual cambia por escenario (ver SAYCO_BASE_MENSUAL, etc.); Otros Gastos
+  // Operativos es un valor fijo de $62.037/mes que ya NO varía por escenario.
   costosOperacion: number;
   bolsaEmpleo: number;
   marketing: number;
@@ -170,10 +179,16 @@ export interface DesglosePYG {
   papeleria: number;
   aseo: number;
   lavanderia: number;
+  amenities: number;
+  blancosLenceria: number;
+  dotacionUniformes: number;
+  seguros: number;
+  comisionPasarelaPagos: number;
   honorariosContables: number;
   sayco: number;
   pmsChanelManager: number;
   otrosGastosOperativos: number;
+  ica: number;
   totalGastosOperacion: number;
   utilidadOperacional: number;
   impuestoRenta: number;
@@ -183,18 +198,23 @@ export interface DesglosePYG {
 /**
  * Desglose P&G escalado a la participación del inversionista, replicando fila por fila la
  * sección "GASTOS PROYECTADOS" de la hoja HERITAGE. Las ventas y las partidas que son % de
- * ventas (comisión canales, FARA, costos de operación, bolsa de empleo, marketing, fee
- * operador comercial) escalan por la cuota del inversionista dentro de SU tipología
- * (N° unidades / unidades de esa tipología). Energía, agua, gas, internet, papelería,
- * honorarios, fee administración, aseo, lavandería, Sayco y Acimpro, PMS y Chanel Manager y
- * Otros Gastos Operativos (Anexo 3) son POR APARTAMENTO (base mensual × 12 × N apartamentos,
- * con inflación de costos por año); aseo, lavandería, Sayco, PMS y Otros Gastos Operativos
- * además varían por escenario (Pesimista = valor base/mes, Conservador = Pesimista +X%,
- * Optimista = Conservador +X%, ver cada constante en data.ts para el % exacto). Comisión
- * canales, Fondo FARA, Fee Operador comercial e Impuesto usan los % editables de "parámetros
- * avanzados"; el resto de partidas son fijas (fuente de verdad) y solo varían por año
- * (inflación) o por escenario (energía/agua/gas según ocupación, aseo/lavandería/sayco/PMS/
- * otros gastos según el valor base del escenario).
+ * ventas (comisión canales, FARA, marketing, fee operador comercial) escalan por la cuota
+ * del inversionista dentro de SU tipología (N° unidades / unidades de esa tipología).
+ * Energía, agua, gas, internet, papelería, honorarios, fee administración, aseo, lavandería,
+ * Sayco y Acimpro, PMS y Chanel Manager, Otros Gastos Operativos (Anexo 3), Nómina
+ * Prestacional y Bolsa de Empleo son POR APARTAMENTO (base mensual × 12 × N apartamentos,
+ * con inflación de costos por año) — Bolsa de Empleo en particular es 10% de la base mensual
+ * de Nómina Prestacional, ya no un % de ventas; Sayco y PMS además varían por escenario
+ * (Pesimista = valor base/mes, Conservador = Pesimista +X%, Optimista = Conservador +X%, ver
+ * cada constante en data.ts para el % exacto); Otros Gastos Operativos es un valor fijo
+ * ($62.037/mes) que ya NO varía por escenario; aseo y lavandería en cambio escalan por % de
+ * ocupación igual que energía/agua/gas ($80.000/mes a 100% ocupación para 1 hab; 2 hab = 1
+ * hab × 1.05, ver ASEO_BASE_MENSUAL/LAVANDERIA_BASE_MENSUAL), ya no por un recargo fijo de
+ * escenario.
+ * Comisión canales, Fondo FARA, Fee Operador comercial e Impuesto usan los % editables de
+ * "parámetros avanzados"; el resto de partidas son fijas (fuente de verdad) y solo varían por
+ * año (inflación) o por escenario (energía/agua/gas/aseo/lavandería según ocupación,
+ * sayco/PMS según el valor base del escenario).
  */
 export function calcularDesglose(params: {
   escenario: Escenario;
@@ -235,25 +255,39 @@ export function calcularDesglose(params: {
   let otrosGastosOperativos = 0;
   let aseo = 0;
   let lavanderia = 0;
+  let amenities = 0;
+  let blancosLenceria = 0;
+  let dotacionUniformes = 0;
+  let seguros = 0;
+  let comisionPasarelaPagos = 0;
+  let ica = 0;
 
-  // Energía/Agua/Gas/Internet/Fee Administración/Papelería/Honorarios Contables son POR
-  // APARTAMENTO (cada unidad tiene su propio consumo/línea/cuota), no un total fijo del
-  // edificio: en vivo = base mensual (a 100% ocupación) × % ocupación actual × 12 × N
-  // apartamentos, con inflación de costos compuesta por año. Solo Energía/Agua/Gas dependen
-  // de la ocupación. Reaccionan tanto a la ocupación editada como al N° de unidades.
+  // Energía/Agua/Gas/Aseo/Lavandería/Amenities/Internet/Comisión Fee/Papelería/Honorarios
+  // Contables son POR APARTAMENTO (cada unidad tiene su propio consumo/línea/cuota), no un
+  // total fijo del edificio: en vivo = base mensual (a 100% ocupación) × % ocupación actual ×
+  // 12 × N apartamentos, con inflación de costos compuesta por año.
+  // Energía/Agua/Gas/Aseo/Lavandería/Amenities dependen de la ocupación; el resto no.
+  // Reaccionan tanto a la ocupación editada como al N° de unidades. Comisión Fee, Aseo,
+  // Lavandería y Amenities además varían por tipología (ver
+  // FEE_ADMINISTRACION_MENSUAL/ASEO_BASE_MENSUAL/LAVANDERIA_BASE_MENSUAL en data.ts — 2 hab =
+  // 1 hab × 1.05), por eso se calculan dentro del loop por tipología en vez de una sola vez
+  // aquí arriba.
   const inflacion = (1 + INFLACION_COSTOS_ANUAL) ** (anio - 1);
   const energiaPorApto = ENERGIA_BASE_MENSUAL * ocupacion * 12 * inflacion;
   const aguaPorApto = AGUA_BASE_MENSUAL * ocupacion * 12 * inflacion;
   const gasPorApto = GAS_BASE_MENSUAL * ocupacion * 12 * inflacion;
   const internetPorApto = INTERNET_BASE_MENSUAL * 12 * inflacion;
-  const feeAdministracionPorApto = FEE_ADMINISTRACION_MENSUAL * 12 * inflacion;
   const papeleriaPorApto = PAPELERIA_BASE_MENSUAL * 12 * inflacion;
   const honorariosContablesPorApto = HONORARIOS_CONTABLES_BASE_MENSUAL * 12 * inflacion;
   const saycoPorApto = SAYCO_BASE_MENSUAL[escenario] * 12 * inflacion;
   const pmsChanelManagerPorApto = PMS_CHANEL_MANAGER_BASE_MENSUAL[escenario] * 12 * inflacion;
-  const otrosGastosOperativosPorApto = OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL[escenario] * 12 * inflacion;
-  const aseoPorApto = ASEO_BASE_MENSUAL[escenario] * 12 * inflacion;
-  const lavanderiaPorApto = LAVANDERIA_BASE_MENSUAL[escenario] * 12 * inflacion;
+  const otrosGastosOperativosPorApto = OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL * 12 * inflacion;
+  // Nómina Prestacional: igual patrón que Fee Administración (fijo por apartamento, no % de
+  // ventas). Ver NOMINA_PRESTACIONAL_BASE_MENSUAL en data.ts para la fórmula fuente.
+  const nominaPrestacionalPorApto = NOMINA_PRESTACIONAL_BASE_MENSUAL * 12 * inflacion;
+  // Bolsa de Empleo: mismo patrón, fijo por apartamento = 10% de la base mensual de Nómina
+  // Prestacional (ver BOLSA_EMPLEO_BASE_MENSUAL en data.ts), ya no % de ventas.
+  const bolsaEmpleoPorApto = BOLSA_EMPLEO_BASE_MENSUAL * 12 * inflacion;
 
   for (const t of tipologias) {
     const unidadesT = unidadesDe(t);
@@ -262,6 +296,13 @@ export function calcularDesglose(params: {
     const dias = params.diasEfectivos ?? DIAS_BASE[t];
     const adr = params.adrOverride?.[t];
     const ventasT = ingresoTipologia(escenario, t, anio, dias, ocupacion, adr) * share;
+    const feeAdministracionPorApto = FEE_ADMINISTRACION_MENSUAL[t] * 12 * inflacion;
+    const aseoPorApto = ASEO_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
+    const lavanderiaPorApto = LAVANDERIA_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
+    const amenitiesPorApto = AMENITIES_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
+    const blancosLenceriaPorApto = BLANCOS_LENCERIA_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
+    const dotacionUniformesPorApto = DOTACION_UNIFORMES_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
+    const segurosPorApto = SEGUROS_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
 
     if (t === "1hab") ventas1Hab += ventasT;
     else ventas2Hab += ventasT;
@@ -269,10 +310,12 @@ export function calcularDesglose(params: {
     ventasBrutas += ventasT;
     comisionCanales += ventasT * adv.comisionCanalesPct;
     fondoFARA += ventasT * adv.faraPct;
-    costosOperacion += ventasT * COSTOS_OPERACION_PCT;
-    bolsaEmpleo += ventasT * BOLSA_EMPLEO_PCT;
+    costosOperacion += nominaPrestacionalPorApto * nT;
+    bolsaEmpleo += bolsaEmpleoPorApto * nT;
     marketing += ventasT * MARKETING_PCT;
     operadorComercialFee += ventasT * adv.operadorComercialFeePct;
+    comisionPasarelaPagos += ventasT * COMISION_PASARELA_PAGOS_PCT;
+    ica += ventasT * ICA_PCT;
     energia += energiaPorApto * nT;
     agua += aguaPorApto * nT;
     gas += gasPorApto * nT;
@@ -285,6 +328,10 @@ export function calcularDesglose(params: {
     otrosGastosOperativos += otrosGastosOperativosPorApto * nT;
     aseo += aseoPorApto * nT;
     lavanderia += lavanderiaPorApto * nT;
+    amenities += amenitiesPorApto * nT;
+    blancosLenceria += blancosLenceriaPorApto * nT;
+    dotacionUniformes += dotacionUniformesPorApto * nT;
+    seguros += segurosPorApto * nT;
   }
 
   const totalCostoVentas = comisionCanales + fondoFARA;
@@ -295,6 +342,7 @@ export function calcularDesglose(params: {
     bolsaEmpleo +
     marketing +
     operadorComercialFee +
+    comisionPasarelaPagos +
     energia +
     agua +
     gas +
@@ -303,10 +351,15 @@ export function calcularDesglose(params: {
     papeleria +
     aseo +
     lavanderia +
+    amenities +
+    blancosLenceria +
+    dotacionUniformes +
+    seguros +
     honorariosContables +
     sayco +
     pmsChanelManager +
-    otrosGastosOperativos;
+    otrosGastosOperativos +
+    ica;
 
   const utilidadOperacional = utilidadBruta - totalGastosOperacion;
   const impuestoRenta = Math.max(utilidadOperacional, 0) * adv.impuestoPct;
@@ -324,6 +377,7 @@ export function calcularDesglose(params: {
     bolsaEmpleo,
     marketing,
     operadorComercialFee,
+    comisionPasarelaPagos,
     feeAdministracion,
     energia,
     agua,
@@ -332,10 +386,15 @@ export function calcularDesglose(params: {
     papeleria,
     aseo,
     lavanderia,
+    amenities,
+    blancosLenceria,
+    dotacionUniformes,
+    seguros,
     honorariosContables,
     sayco,
     pmsChanelManager,
     otrosGastosOperativos,
+    ica,
     totalGastosOperacion,
     utilidadOperacional,
     impuestoRenta,

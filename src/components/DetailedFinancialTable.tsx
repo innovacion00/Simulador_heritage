@@ -22,6 +22,11 @@ interface RowState {
 
 const DEFAULT_ROW_STATE: RowState = { enabled: true, pctOverride: null };
 
+// Estas partidas arrancan desactivadas por defecto (el usuario las activa manualmente si
+// quiere incluirlas en la simulación local de esta tabla): Servicios Públicos, y "Cuota de
+// Administración del Edificio" que además arranca en $0.
+const DISABLED_BY_DEFAULT_KEYS = new Set(["energia", "agua", "gas", "internet", "cuotaAdministracionEdificio"]);
+
 /**
  * Réplica fila por fila de la sección de la hoja HERITAGE (Excel "Hertitage Nuevo.xlsx")
  * que va de "INGRESOS PROYECTADOS" (A24) a "UTILIDAD NETA" (A66). Las filas A19-A22
@@ -40,7 +45,8 @@ export function DetailedFinancialTable({
 
   const pctBasis = desglose.ventasBrutas;
 
-  const getState = (key: string): RowState => rowStates[key] ?? DEFAULT_ROW_STATE;
+  const getState = (key: string): RowState =>
+    rowStates[key] ?? { ...DEFAULT_ROW_STATE, enabled: !DISABLED_BY_DEFAULT_KEYS.has(key) };
 
   const setEnabled = (key: string, enabled: boolean) =>
     setRowStates((prev) => ({ ...prev, [key]: { ...getState(key), enabled } }));
@@ -65,9 +71,9 @@ export function DetailedFinancialTable({
   // A31-A35: COSTOS OPERACIONALES PROYECTADOS → subtotal COSTOS DIRECTOS (A37)
   const costosDirectosItems: LineItem[] = [
     { key: "comisionCanales", concepto: "Comisión canales (Booking, Airbnb, Web, Agencias + 20 Canales)", original: desglose.comisionCanales, sign: -1 },
-    { key: "feeAdministracion", concepto: "Comisión Fee Administración", original: desglose.feeAdministracion, sign: -1, hasExcelPct: false },
+    { key: "feeAdministracion", concepto: "Comisión Fee", original: desglose.feeAdministracion, sign: -1, hasExcelPct: false },
     { key: "fondoFARA", concepto: "FARA (Fondo de Reposición y Reparación)", original: desglose.fondoFARA, sign: -1 },
-    { key: "costosOperacion", concepto: "Costos de Operación (Nómina Personal, Variables, Dotación)", original: desglose.costosOperacion, sign: -1 },
+    { key: "costosOperacion", concepto: "Nómina Prestacional", original: desglose.costosOperacion, sign: -1, hasExcelPct: false },
     { key: "bolsaEmpleo", concepto: "Bolsa de Empleo", original: desglose.bolsaEmpleo, sign: -1 },
   ];
 
@@ -83,21 +89,38 @@ export function DetailedFinancialTable({
 
   // A50-A55: GASTOS VARIOS → subtotal GASTOS VARIOS (A56)
   // Marketing (B53=1%) y Operación Fee Operador comercial (B55=10%) sí son % de ventas en
-  // el Excel; el resto son montos fijos en pesos (B50, B51, B52, B54).
+  // el Excel; el resto son montos fijos en pesos (B50, B51, B52, B54). "Amenities y
+  // Consumibles de Huésped", "Reposición de Blancos y Lencería", "Dotación, Uniformes y
+  // Capacitación" y "Seguros (Todo Riesgo Contenido + RC Hotelera)" son filas añadidas fuera
+  // del Excel fuente, misma fórmula que Aseo. "Comisión Pasarela de Pagos" también es
+  // añadida, pero a diferencia de esas es % de ventas (0.5%), no un monto fijo por
+  // apartamento — por eso no lleva hasExcelPct: false.
   const gastosVariosItems: LineItem[] = [
     { key: "papeleria", concepto: "Papelería", original: desglose.papeleria, sign: -1, hasExcelPct: false },
     { key: "aseo", concepto: "Aseo", original: desglose.aseo, sign: -1, hasExcelPct: false },
     { key: "lavanderia", concepto: "Lavandería", original: desglose.lavanderia, sign: -1, hasExcelPct: false },
+    { key: "amenities", concepto: "Amenities y Consumibles de Huésped", original: desglose.amenities, sign: -1, hasExcelPct: false },
+    { key: "blancosLenceria", concepto: "Reposición de Blancos y Lencería", original: desglose.blancosLenceria, sign: -1, hasExcelPct: false },
+    { key: "dotacionUniformes", concepto: "Dotación, Uniformes y Capacitación", original: desglose.dotacionUniformes, sign: -1, hasExcelPct: false },
+    { key: "seguros", concepto: "Seguros (Todo Riesgo Contenido + RC Hotelera)", original: desglose.seguros, sign: -1, hasExcelPct: false },
+    { key: "comisionPasarelaPagos", concepto: "Comisión Pasarela de Pagos", original: desglose.comisionPasarelaPagos, sign: -1 },
     { key: "marketing", concepto: "Marketing y Publicidad", original: desglose.marketing, sign: -1 },
     { key: "honorariosContables", concepto: "Honorarios Firma Contable y Revisoría Fiscal", original: desglose.honorariosContables, sign: -1, hasExcelPct: false },
     { key: "operadorComercialFee", concepto: "Operación Fee Operador comercial", original: desglose.operadorComercialFee, sign: -1 },
   ];
 
   // A58-A60: partidas individuales, sin subtotal propio. Las 3 son montos fijos en pesos.
+  // "ICA (Impuesto de Industria y Comercio)" es una fila añadida fuera del Excel fuente: a
+  // diferencia de las otras 3, es % de ventas (0.7%), no un monto fijo. "Cuota de
+  // Administración del Edificio" también es añadida: arranca en $0 y con el switch "Activo"
+  // apagado (ver DISABLED_BY_DEFAULT_KEYS) — el usuario la activa y edita manualmente si
+  // quiere incluirla en la simulación local de esta tabla.
   const otrosGastosItems: LineItem[] = [
     { key: "sayco", concepto: "Sayco y Acimpro", original: desglose.sayco, sign: -1, hasExcelPct: false },
     { key: "pmsChanelManager", concepto: "PMS y Chanel Manager", original: desglose.pmsChanelManager, sign: -1, hasExcelPct: false },
     { key: "otrosGastosOperativos", concepto: "Otros Gastos Operativos (Anexo 3) - prorrateo x unidad", original: desglose.otrosGastosOperativos, sign: -1, hasExcelPct: false },
+    { key: "cuotaAdministracionEdificio", concepto: "Cuota de Administración del Edificio", original: 0, sign: -1, hasExcelPct: false },
+    { key: "ica", concepto: "ICA (Impuesto de Industria y Comercio)", original: desglose.ica, sign: -1 },
   ];
 
   const impuestoItem: LineItem = { key: "impuestoRenta", concepto: "(-) Impuesto de renta", original: desglose.impuestoRenta, sign: -1 };
