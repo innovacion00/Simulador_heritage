@@ -23,9 +23,9 @@ interface RowState {
 const DEFAULT_ROW_STATE: RowState = { enabled: true, pctOverride: null };
 
 // Estas partidas arrancan desactivadas por defecto (el usuario las activa manualmente si
-// quiere incluirlas en la simulación local de esta tabla): Servicios Públicos, y "Cuota de
-// Administración del Edificio" que además arranca en $0.
-const DISABLED_BY_DEFAULT_KEYS = new Set(["energia", "agua", "gas", "internet", "cuotaAdministracionEdificio"]);
+// quiere incluirlas en la simulación local de esta tabla): "Cuota de Administración del
+// Edificio", que además arranca en $0.
+const DISABLED_BY_DEFAULT_KEYS = new Set(["cuotaAdministracionEdificio"]);
 
 /**
  * Réplica fila por fila de la sección de la hoja HERITAGE (Excel "Hertitage Nuevo.xlsx")
