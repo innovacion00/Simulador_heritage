@@ -90,10 +90,12 @@ export function DetailedFinancialTable({
   // A50-A55: GASTOS VARIOS → subtotal GASTOS VARIOS (A56)
   // Marketing (B53=1%) y Operación Fee Operador comercial (B55=10%) sí son % de ventas en
   // el Excel; el resto son montos fijos en pesos (B50, B51, B52, B54). "Amenities y
-  // Consumibles de Huésped", "Reposición de Blancos y Lencería", "Dotación, Uniformes y
-  // Capacitación" y "Seguros (Todo Riesgo Contenido + RC Hotelera)" son filas añadidas fuera
-  // del Excel fuente, misma fórmula que Aseo. "Comisión Pasarela de Pagos" también es
-  // añadida, pero a diferencia de esas es % de ventas (0.5%), no un monto fijo por
+  // Consumibles de Huésped" y "Reposición de Blancos y Lencería" son filas añadidas fuera del
+  // Excel fuente, misma fórmula que Aseo (escala por ocupación y varía por tipología).
+  // "Dotación, Uniformes y Capacitación" y "Seguros (Todo Riesgo Contenido + RC Hotelera)"
+  // también son añadidas, pero son montos fijos puros ($25.000 y $45.000/mes respectivamente)
+  // para ambas tipologías y los 3 escenarios, sin escalar por ocupación. "Comisión Pasarela
+  // de Pagos" también es añadida, pero a diferencia de esas es % de ventas (0.5%), no un monto fijo por
   // apartamento — por eso no lleva hasExcelPct: false.
   const gastosVariosItems: LineItem[] = [
     { key: "papeleria", concepto: "Papelería", original: desglose.papeleria, sign: -1, hasExcelPct: false },

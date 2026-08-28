@@ -190,25 +190,19 @@ export const BLANCOS_LENCERIA_BASE_MENSUAL: Record<Tipologia, number> = {
   "2hab": 50_000 * 1.05,
 };
 
-// Dotación, Uniformes y Capacitación — POR APARTAMENTO, misma fórmula que Aseo/Lavandería:
-// $25.000/mes a 100% de ocupación para 1 hab; 2 hab = 1 hab × 1.05. Escala por % de
-// ocupación del escenario/año, igual patrón que Energía/Agua/Gas/Aseo/Lavandería/Amenities/
-// Blancos y Lencería: base mensual[tipología] × % ocupación actual × 12 × N apartamentos,
-// con inflación de costos por año.
-export const DOTACION_UNIFORMES_BASE_MENSUAL: Record<Tipologia, number> = {
-  "1hab": 25_000,
-  "2hab": 25_000 * 1.05,
-};
+// Dotación, Uniformes y Capacitación — POR APARTAMENTO, valor FIJO de $25.000/mes para
+// ambas tipologías (1 y 2 hab) y los 3 escenarios; NO escala por ocupación ni por tipología
+// (a diferencia de Aseo/Lavandería/Amenities/Blancos y Lencería). Años 2-3 se siguen
+// escalando igual que el resto de partidas por apartamento (inflación 5%/año,
+// INFLACION_COSTOS_ANUAL).
+export const DOTACION_UNIFORMES_BASE_MENSUAL = 25_000;
 
-// Seguros (Todo Riesgo Contenido + RC Hotelera) — POR APARTAMENTO, misma fórmula que
-// Aseo/Lavandería: $45.000/mes a 100% de ocupación para 1 hab; 2 hab = 1 hab × 1.05. Escala
-// por % de ocupación del escenario/año, igual patrón que Energía/Agua/Gas/Aseo/Lavandería/
-// Amenities/Blancos y Lencería/Dotación: base mensual[tipología] × % ocupación actual × 12 ×
-// N apartamentos, con inflación de costos por año.
-export const SEGUROS_BASE_MENSUAL: Record<Tipologia, number> = {
-  "1hab": 45_000,
-  "2hab": 45_000 * 1.05,
-};
+// Seguros (Todo Riesgo Contenido + RC Hotelera) — POR APARTAMENTO, valor FIJO de $45.000/mes
+// para ambas tipologías (1 y 2 hab) y los 3 escenarios; NO escala por ocupación ni por
+// tipología (a diferencia de Aseo/Lavandería/Amenities/Blancos y Lencería). Años 2-3 se
+// siguen escalando igual que el resto de partidas por apartamento (inflación 5%/año,
+// INFLACION_COSTOS_ANUAL).
+export const SEGUROS_BASE_MENSUAL = 45_000;
 
 // Sayco y Acimpro — POR APARTAMENTO (1 y 2 habitaciones usan la misma base), Año 1 de cada
 // escenario. Conservador = Pesimista + 5%; Optimista = Conservador + 5%. Dentro de un mismo

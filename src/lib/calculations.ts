@@ -279,6 +279,12 @@ export function calcularDesglose(params: {
   const internetPorApto = INTERNET_BASE_MENSUAL * 12 * inflacion;
   const papeleriaPorApto = PAPELERIA_BASE_MENSUAL * 12 * inflacion;
   const honorariosContablesPorApto = HONORARIOS_CONTABLES_BASE_MENSUAL * 12 * inflacion;
+  // Dotación, Uniformes y Capacitación: fijo por apartamento, misma base para ambas
+  // tipologías y los 3 escenarios (no escala por ocupación, a diferencia de Aseo/Lavandería).
+  const dotacionUniformesPorApto = DOTACION_UNIFORMES_BASE_MENSUAL * 12 * inflacion;
+  // Seguros (Todo Riesgo Contenido + RC Hotelera): mismo patrón que Dotación, fijo por
+  // apartamento, misma base para ambas tipologías y los 3 escenarios.
+  const segurosPorApto = SEGUROS_BASE_MENSUAL * 12 * inflacion;
   const saycoPorApto = SAYCO_BASE_MENSUAL[escenario] * 12 * inflacion;
   const pmsChanelManagerPorApto = PMS_CHANEL_MANAGER_BASE_MENSUAL[escenario] * 12 * inflacion;
   const otrosGastosOperativosPorApto = OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL * 12 * inflacion;
@@ -301,8 +307,6 @@ export function calcularDesglose(params: {
     const lavanderiaPorApto = LAVANDERIA_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
     const amenitiesPorApto = AMENITIES_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
     const blancosLenceriaPorApto = BLANCOS_LENCERIA_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
-    const dotacionUniformesPorApto = DOTACION_UNIFORMES_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
-    const segurosPorApto = SEGUROS_BASE_MENSUAL[t] * ocupacion * 12 * inflacion;
 
     if (t === "1hab") ventas1Hab += ventasT;
     else ventas2Hab += ventasT;
