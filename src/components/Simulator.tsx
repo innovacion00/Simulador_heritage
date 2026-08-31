@@ -482,7 +482,7 @@ export function Simulator() {
               <div className="flex items-center gap-3">
                 <input
                   type="range"
-                  min={280}
+                  min={0}
                   max={365}
                   step={1}
                   value={diasEfectivos}

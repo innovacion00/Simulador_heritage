@@ -23,6 +23,8 @@ No hay suite de tests configurada.
 
 Next.js está fijado en `16.2.10` con React `19.2.4` — una versión más nueva que tus datos de entrenamiento. **Antes de escribir código que toque routing, config, data fetching, caching o metadata, lee la doc correspondiente en `node_modules/next/dist/docs/`** (p. ej. `01-app/01-getting-started/`, `01-app/03-api-reference/05-config/`) en vez de confiar en tu conocimiento previo de las convenciones de Next.js. Respeta cualquier aviso de deprecación que encuentres ahí.
 
+(`AGENTS.md` trae la misma advertencia en forma resumida — si actualizas esta sección, mantenlas alineadas.)
+
 ## Arquitectura
 
 **Todo es un client component.** `src/app/page.tsx` es un shell de servidor simple que renderiza `SiteHeader → Hero → Simulator → HowItWorksSection → Footer` en orden; toda la interactividad vive en `Simulator.tsx` (marcado `"use client"`), que concentra prácticamente todo el estado del simulador (escenario, tipo de unidad, número de unidades/monto, parámetros avanzados, moneda, overrides) y pasa los valores derivados a sus hijos:

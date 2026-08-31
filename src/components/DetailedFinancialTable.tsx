@@ -114,14 +114,16 @@ export function DetailedFinancialTable({
   // A58-A60: partidas individuales, sin subtotal propio. Las 3 son montos fijos en pesos.
   // "ICA (Impuesto de Industria y Comercio)" es una fila añadida fuera del Excel fuente: a
   // diferencia de las otras 3, es % de ventas (0.7%), no un monto fijo. "Cuota de
-  // Administración del Edificio" también es añadida: arranca en $0 y con el switch "Activo"
-  // apagado (ver DISABLED_BY_DEFAULT_KEYS) — el usuario la activa y edita manualmente si
-  // quiere incluirla en la simulación local de esta tabla.
+  // Administración del Edificio" también es añadida: arranca en $0, sin % del Excel (por eso
+  // no lleva hasExcelPct: false, para que el usuario pueda escribir directamente el % de
+  // ventas que quiera simular) y con el switch "Activo" apagado (ver DISABLED_BY_DEFAULT_KEYS)
+  // — el usuario la activa y edita manualmente si quiere incluirla en la simulación local de
+  // esta tabla.
   const otrosGastosItems: LineItem[] = [
     { key: "sayco", concepto: "Sayco y Acimpro", original: desglose.sayco, sign: -1, hasExcelPct: false },
     { key: "pmsChanelManager", concepto: "PMS y Chanel Manager", original: desglose.pmsChanelManager, sign: -1, hasExcelPct: false },
     { key: "otrosGastosOperativos", concepto: "Otros Gastos Operativos (Anexo 3) - prorrateo x unidad", original: desglose.otrosGastosOperativos, sign: -1, hasExcelPct: false },
-    { key: "cuotaAdministracionEdificio", concepto: "Cuota de Administración del Edificio", original: 0, sign: -1, hasExcelPct: false },
+    { key: "cuotaAdministracionEdificio", concepto: "Cuota de Administración del Edificio", original: 0, sign: -1 },
     { key: "ica", concepto: "ICA (Impuesto de Industria y Comercio)", original: desglose.ica, sign: -1 },
   ];
 
