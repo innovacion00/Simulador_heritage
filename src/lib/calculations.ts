@@ -229,6 +229,9 @@ export function calcularDesglose(params: {
   diasEfectivos?: number;
   ocupacion?: number;
   adrOverride?: Partial<Record<Tipologia, number>>;
+  // Composición explícita de "mixto" (N° de unidades 1 hab / 2 hab). Si no se pasa, se usa la
+  // proporción real del edificio (72:36) vía splitMixto(nUnidades) — ver splitMixto más abajo.
+  splitUnidades?: Partial<Record<Tipologia, number>>;
 }): DesglosePYG {
   const { escenario, tipologia, anio, nUnidades } = params;
   const adv = params.advancedParams ?? ADVANCED_PARAMS_DEFAULT;
@@ -236,7 +239,11 @@ export function calcularDesglose(params: {
 
   const tipologias: Tipologia[] = tipologia === "mixto" ? ["1hab", "2hab"] : [tipologia];
   const splits: Record<Tipologia, number> =
-    tipologia === "mixto" ? splitMixto(nUnidades) : ({ [tipologia]: nUnidades } as Record<Tipologia, number>);
+    tipologia === "mixto"
+      ? params.splitUnidades
+        ? { "1hab": params.splitUnidades["1hab"] ?? 0, "2hab": params.splitUnidades["2hab"] ?? 0 }
+        : splitMixto(nUnidades)
+      : ({ [tipologia]: nUnidades } as Record<Tipologia, number>);
 
   let ventas1Hab = 0;
   let ventas2Hab = 0;
@@ -446,6 +453,7 @@ export function simular(params: {
   ocupacionAnio3?: number;
   adrOverride?: Partial<Record<Tipologia, number>>;
   adrOverrideAnio3?: Partial<Record<Tipologia, number>>;
+  splitUnidades?: Partial<Record<Tipologia, number>>;
 }): ResultadoSimulacion {
   const {
     escenario,
@@ -460,6 +468,7 @@ export function simular(params: {
     ocupacionAnio3,
     adrOverride,
     adrOverrideAnio3,
+    splitUnidades,
   } = params;
 
   const desglose = calcularDesglose({
@@ -471,6 +480,7 @@ export function simular(params: {
     diasEfectivos,
     ocupacion,
     adrOverride,
+    splitUnidades,
   });
   const fara = incluirFara ? faraAcumuladoInversionista(escenario, anio as AnioFara, nUnidades) : 0;
   const utilidadTotalConFara = desglose.utilidadNeta + fara;
@@ -487,6 +497,7 @@ export function simular(params: {
     diasEfectivos,
     ocupacion: ocupacionAnio3,
     adrOverride: adrOverrideAnio3,
+    splitUnidades,
   });
   const paybackAnios =
     desgloseMaduracion.utilidadNeta > 0 ? montoInvertido / desgloseMaduracion.utilidadNeta : null;

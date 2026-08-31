@@ -127,6 +127,7 @@ function RentabilidadPorEscenarioChart({
   diasEfectivos,
   ocupacionPorEscenario,
   adrOverridePorEscenario,
+  splitUnidades,
 }: {
   tipologia: TipologiaSeleccion;
   anio: Anio;
@@ -136,6 +137,7 @@ function RentabilidadPorEscenarioChart({
   diasEfectivos: number;
   ocupacionPorEscenario: Record<Escenario, number>;
   adrOverridePorEscenario?: Record<Escenario, Partial<Record<Tipologia, number>>>;
+  splitUnidades?: Partial<Record<Tipologia, number>>;
 }) {
   const data = ESCENARIOS.map((e) => {
     const desglose = calcularDesglose({
@@ -147,6 +149,7 @@ function RentabilidadPorEscenarioChart({
       diasEfectivos,
       ocupacion: ocupacionPorEscenario[e.id],
       adrOverride: adrOverridePorEscenario?.[e.id],
+      splitUnidades,
     });
     const roi = montoInvertido > 0 ? desglose.utilidadNeta / montoInvertido : 0;
     return { name: e.label, value: roi * 100, fill: ESCENARIO_COLORS[e.id] };
@@ -181,6 +184,7 @@ export function ChartsSection({
   diasEfectivos,
   ocupacionPorEscenario,
   adrOverridePorEscenario,
+  splitUnidades,
   moneda,
   tasaCambio,
 }: {
@@ -193,6 +197,7 @@ export function ChartsSection({
   diasEfectivos: number;
   ocupacionPorEscenario: Record<Escenario, number>;
   adrOverridePorEscenario?: Record<Escenario, Partial<Record<Tipologia, number>>>;
+  splitUnidades?: Partial<Record<Tipologia, number>>;
   moneda: Moneda;
   tasaCambio: number;
 }) {
@@ -215,6 +220,7 @@ export function ChartsSection({
         diasEfectivos={diasEfectivos}
         ocupacionPorEscenario={ocupacionPorEscenario}
         adrOverridePorEscenario={adrOverridePorEscenario}
+        splitUnidades={splitUnidades}
       />
     </div>
   );

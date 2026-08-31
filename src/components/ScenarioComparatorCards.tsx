@@ -23,6 +23,7 @@ export function ScenarioComparatorCards({
   diasEfectivos,
   ocupacionPorEscenario,
   adrOverridePorEscenario,
+  splitUnidades,
   escenarioActivo,
   moneda,
   tasaCambio,
@@ -35,6 +36,7 @@ export function ScenarioComparatorCards({
   diasEfectivos: number;
   ocupacionPorEscenario: Record<Escenario, number>;
   adrOverridePorEscenario?: Record<Escenario, Partial<Record<Tipologia, number>>>;
+  splitUnidades?: Partial<Record<Tipologia, number>>;
   escenarioActivo: Escenario;
   moneda: Moneda;
   tasaCambio: number;
@@ -53,6 +55,7 @@ export function ScenarioComparatorCards({
           diasEfectivos,
           ocupacion,
           adrOverride,
+          splitUnidades,
         });
         const roiAnual = montoInvertido > 0 ? desglose.utilidadNeta / montoInvertido : 0;
         const isActive = e.id === escenarioActivo;

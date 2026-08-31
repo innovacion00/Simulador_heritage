@@ -76,6 +76,11 @@ export function Simulator() {
   // mensual/anual (ver StatTiles de Resultados), no una selección de año.
   const anio: Anio = 1;
   const [nUnidades, setNUnidades] = useState(1);
+  // Composición del proyecto completo ("mixto"): por defecto las 72/36 unidades reales del
+  // edificio, pero el usuario puede bajarlas (nunca superar esos topes) para simular un
+  // proyecto con menos unidades de alguna tipología, ej. 70 de 1 hab y 30 de 2 hab.
+  const [n1habMixto, setN1habMixto] = useState(72);
+  const [n2habMixto, setN2habMixto] = useState(36);
   const [inputMode, setInputMode] = useState<"unidades" | "monto">("unidades");
   const [montoTexto, setMontoTexto] = useState("");
   const [incluirFara, setIncluirFara] = useState(true);
@@ -151,19 +156,29 @@ export function Simulator() {
   // Máximo de unidades disponibles para la tipología seleccionada (72 para 1 Habitación,
   // 36 para 2 Habitaciones); no aplica en "mixto" (usa el total del edificio).
   const maxUnidades = esProyectoCompleto ? UNIDADES_TOTALES : TIPOLOGIAS.find((t) => t.id === tipologia)!.unidades;
+  const max1habMixto = TIPOLOGIAS.find((t) => t.id === "1hab")!.unidades;
+  const max2habMixto = TIPOLOGIAS.find((t) => t.id === "2hab")!.unidades;
+
+  // En "mixto" el total de unidades ya no está fijo en 108: es la suma de lo que el usuario
+  // eligió para cada tipología (topado en 72 y 36 respectivamente).
+  const splitMixtoActual = useMemo(
+    () => ({ "1hab": n1habMixto, "2hab": n2habMixto }),
+    [n1habMixto, n2habMixto]
+  );
+  const unidadesMixto = n1habMixto + n2habMixto;
 
   const unidadesEfectivas = useMemo(() => {
-    if (esProyectoCompleto) return UNIDADES_TOTALES;
+    if (esProyectoCompleto) return unidadesMixto;
     if (inputMode === "unidades") return nUnidades;
     const monto = Number(montoTexto.replace(/[^\d]/g, "")) || 0;
     return Math.max(Math.round(monto / precioUnidad), 0);
-  }, [esProyectoCompleto, inputMode, nUnidades, montoTexto, precioUnidad]);
+  }, [esProyectoCompleto, unidadesMixto, inputMode, nUnidades, montoTexto, precioUnidad]);
 
   const montoInvertido = useMemo(() => {
-    if (esProyectoCompleto) return UNIDADES_TOTALES * precioUnidad;
+    if (esProyectoCompleto) return unidadesMixto * precioUnidad;
     if (inputMode === "monto") return Number(montoTexto.replace(/[^\d]/g, "")) || 0;
     return nUnidades * precioUnidad;
-  }, [esProyectoCompleto, inputMode, montoTexto, nUnidades, precioUnidad]);
+  }, [esProyectoCompleto, unidadesMixto, inputMode, montoTexto, nUnidades, precioUnidad]);
 
   const resultado = useMemo(
     () =>
@@ -180,6 +195,7 @@ export function Simulator() {
         ocupacionAnio3: ocupacionOverrides[escenario]?.[3] ?? OCUPACION[escenario][3],
         adrOverride: adrOverrideActual,
         adrOverrideAnio3,
+        splitUnidades: esProyectoCompleto ? splitMixtoActual : undefined,
       }),
     [
       escenario,
@@ -194,6 +210,8 @@ export function Simulator() {
       ocupacionOverrides,
       adrOverrideActual,
       adrOverrideAnio3,
+      esProyectoCompleto,
+      splitMixtoActual,
     ]
   );
 
@@ -256,10 +274,48 @@ export function Simulator() {
                 {esProyectoCompleto ? (
                   <>
                     <label className="block text-xs font-semibold uppercase tracking-wide text-navy/50 mb-2">
-                      N° de unidades
+                      N° de unidades del proyecto ({unidadesMixto} total)
                     </label>
-                    <div className="rounded-xl bg-navy/5 px-4 py-3 text-navy font-medium">
-                      {UNIDADES_TOTALES} unidades · proyecto completo
+                    <div className="space-y-3">
+                      {(
+                        [
+                          { tip: "1hab" as Tipologia, label: "1 Habitación", max: max1habMixto, value: n1habMixto, set: setN1habMixto },
+                          { tip: "2hab" as Tipologia, label: "2 Habitaciones", max: max2habMixto, value: n2habMixto, set: setN2habMixto },
+                        ]
+                      ).map(({ tip, label, max, value, set }) => (
+                        <div key={tip}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-navy/60">{label} (máx. {max})</span>
+                            <span className="text-xs font-semibold text-navy">{value} unidades</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              aria-label={`Restar unidad ${label}`}
+                              onClick={() => set((n) => Math.max(0, n - 1))}
+                              className="h-9 w-9 shrink-0 rounded-lg bg-navy text-arena text-lg font-medium active:scale-95 transition-transform"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="range"
+                              min={0}
+                              max={max}
+                              value={value}
+                              onChange={(e) => set(Number(e.target.value))}
+                              className="flex-1 accent-copper h-2"
+                            />
+                            <button
+                              type="button"
+                              aria-label={`Sumar unidad ${label}`}
+                              onClick={() => set((n) => Math.min(max, n + 1))}
+                              className="h-9 w-9 shrink-0 rounded-lg bg-navy text-arena text-lg font-medium active:scale-95 transition-transform"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </>
                 ) : (
@@ -581,6 +637,7 @@ export function Simulator() {
             diasEfectivos={diasEfectivos}
             ocupacionPorEscenario={ocupacionPorEscenario}
             adrOverridePorEscenario={adrOverridePorEscenario}
+            splitUnidades={esProyectoCompleto ? splitMixtoActual : undefined}
             escenarioActivo={escenario}
             moneda={moneda}
             tasaCambio={tasaCambio}
@@ -601,6 +658,7 @@ export function Simulator() {
           diasEfectivos={diasEfectivos}
           ocupacionPorEscenario={ocupacionPorEscenario}
           adrOverridePorEscenario={adrOverridePorEscenario}
+          splitUnidades={esProyectoCompleto ? splitMixtoActual : undefined}
           moneda={moneda}
           tasaCambio={tasaCambio}
         />
