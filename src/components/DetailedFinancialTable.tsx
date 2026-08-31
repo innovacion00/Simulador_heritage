@@ -125,6 +125,8 @@ export function DetailedFinancialTable({
     { key: "otrosGastosOperativos", concepto: "Otros Gastos Operativos (Anexo 3) - prorrateo x unidad", original: desglose.otrosGastosOperativos, sign: -1, hasExcelPct: false },
     { key: "cuotaAdministracionEdificio", concepto: "Cuota de Administración del Edificio", original: 0, sign: -1 },
     { key: "ica", concepto: "ICA (Impuesto de Industria y Comercio)", original: desglose.ica, sign: -1 },
+    { key: "lanchaDeportiva", concepto: "Servicio de Lancha Deportiva", original: desglose.lanchaDeportiva, sign: -1, hasExcelPct: false },
+    { key: "shuttleBus", concepto: "Shuttle Bus", original: desglose.shuttleBus, sign: -1, hasExcelPct: false },
   ];
 
   const impuestoItem: LineItem = { key: "impuestoRenta", concepto: "(-) Impuesto de renta", original: desglose.impuestoRenta, sign: -1 };
@@ -158,9 +160,6 @@ export function DetailedFinancialTable({
     const magnitude = valueOverride !== undefined ? valueOverride : liveValue(item);
     const value = magnitude * item.sign;
     const pctValue = st.pctOverride !== null ? st.pctOverride * 100 : (magnitude / (pctBasis || 1)) * 100;
-    // Esta partida es un monto fijo en pesos en el Excel (no tiene % de ventas asociado):
-    // mostramos "—" en vez de un % calculado que no corresponde a ningún dato del Excel.
-    const sinPctExcel = item.hasExcelPct === false && st.pctOverride === null;
 
     return (
       <tr key={item.key} className={`border-b border-navy/5 ${!st.enabled ? "opacity-40" : ""}`}>
@@ -172,24 +171,20 @@ export function DetailedFinancialTable({
           {formatMoney(value, moneda, tasaCambio)}
         </td>
         <td className="py-1.5 pl-3 text-right">
-          {sinPctExcel ? (
-            <span className="text-navy/30 text-xs pr-1">—</span>
-          ) : (
-            <div className="inline-flex items-center justify-end gap-1">
-              <input
-                type="number"
-                step={0.1}
-                disabled={!st.enabled}
-                value={Number(pctValue.toFixed(2))}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setPctOverride(item.key, Number.isFinite(v) ? v / 100 : 0);
-                }}
-                className="w-16 rounded-lg border border-navy/15 bg-white px-1.5 py-1 text-right text-xs text-navy tabular-nums focus:outline-none focus:ring-2 focus:ring-copper disabled:bg-navy/5 disabled:text-navy/30"
-              />
-              <span className="text-navy/40 text-xs">%</span>
-            </div>
-          )}
+          <div className="inline-flex items-center justify-end gap-1">
+            <input
+              type="number"
+              step={0.1}
+              disabled={!st.enabled}
+              value={Number(pctValue.toFixed(2))}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setPctOverride(item.key, Number.isFinite(v) ? v / 100 : 0);
+              }}
+              className="w-16 rounded-lg border border-navy/15 bg-white px-1.5 py-1 text-right text-xs text-navy tabular-nums focus:outline-none focus:ring-2 focus:ring-copper disabled:bg-navy/5 disabled:text-navy/30"
+            />
+            <span className="text-navy/40 text-xs">%</span>
+          </div>
         </td>
         <td className="py-2.5 pl-3 text-center">
           <button

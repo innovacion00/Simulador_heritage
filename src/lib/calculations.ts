@@ -21,6 +21,7 @@ import {
   ICA_PCT,
   INFLACION_COSTOS_ANUAL,
   INTERNET_BASE_MENSUAL,
+  LANCHA_DEPORTIVA_BASE_MENSUAL,
   LAVANDERIA_BASE_MENSUAL,
   MARKETING_PCT,
   NOMINA_PRESTACIONAL_BASE_MENSUAL,
@@ -31,6 +32,7 @@ import {
   PRECIO_VENTA_REFERENCIA,
   SAYCO_BASE_MENSUAL,
   SEGUROS_BASE_MENSUAL,
+  SHUTTLE_BUS_BASE_MENSUAL,
   TIPOLOGIAS,
   Tipologia,
   UNIDADES_TOTALES,
@@ -164,7 +166,7 @@ export interface DesglosePYG {
   // apartamentos); bolsaEmpleo en particular es 10% de la base mensual de Nómina
   // Prestacional (ver BOLSA_EMPLEO_BASE_MENSUAL en data.ts), no un % de ventas. Energía/Agua/
   // Gas/Aseo/Lavandería varían por escenario porque se escalan por el % de ocupación de cada
-  // uno ($80.000/mes a 100% ocupación para aseo/lavandería); Sayco y PMS varían por escenario
+  // uno ($277.777/mes a 100% ocupación para aseo, $80.000/mes para lavandería); Sayco y PMS varían por escenario
   // porque su base mensual cambia por escenario (ver SAYCO_BASE_MENSUAL, etc.); Otros Gastos
   // Operativos es un valor fijo de $62.037/mes que ya NO varía por escenario.
   costosOperacion: number;
@@ -183,6 +185,8 @@ export interface DesglosePYG {
   blancosLenceria: number;
   dotacionUniformes: number;
   seguros: number;
+  lanchaDeportiva: number;
+  shuttleBus: number;
   comisionPasarelaPagos: number;
   honorariosContables: number;
   sayco: number;
@@ -259,6 +263,8 @@ export function calcularDesglose(params: {
   let blancosLenceria = 0;
   let dotacionUniformes = 0;
   let seguros = 0;
+  let lanchaDeportiva = 0;
+  let shuttleBus = 0;
   let comisionPasarelaPagos = 0;
   let ica = 0;
 
@@ -285,6 +291,11 @@ export function calcularDesglose(params: {
   // Seguros (Todo Riesgo Contenido + RC Hotelera): mismo patrón que Dotación, fijo por
   // apartamento, misma base para ambas tipologías y los 3 escenarios.
   const segurosPorApto = SEGUROS_BASE_MENSUAL * 12 * inflacion;
+  // Servicio de Lancha Deportiva: mismo patrón que Dotación/Seguros, fijo por apartamento,
+  // misma base para ambas tipologías y los 3 escenarios.
+  const lanchaDeportivaPorApto = LANCHA_DEPORTIVA_BASE_MENSUAL * 12 * inflacion;
+  // Shuttle Bus: mismo patrón que Servicio de Lancha Deportiva.
+  const shuttleBusPorApto = SHUTTLE_BUS_BASE_MENSUAL * 12 * inflacion;
   const saycoPorApto = SAYCO_BASE_MENSUAL[escenario] * 12 * inflacion;
   const pmsChanelManagerPorApto = PMS_CHANEL_MANAGER_BASE_MENSUAL[escenario] * 12 * inflacion;
   const otrosGastosOperativosPorApto = OTROS_GASTOS_OPERATIVOS_BASE_MENSUAL * 12 * inflacion;
@@ -336,6 +347,8 @@ export function calcularDesglose(params: {
     blancosLenceria += blancosLenceriaPorApto * nT;
     dotacionUniformes += dotacionUniformesPorApto * nT;
     seguros += segurosPorApto * nT;
+    lanchaDeportiva += lanchaDeportivaPorApto * nT;
+    shuttleBus += shuttleBusPorApto * nT;
   }
 
   const totalCostoVentas = comisionCanales + fondoFARA;
@@ -359,6 +372,8 @@ export function calcularDesglose(params: {
     blancosLenceria +
     dotacionUniformes +
     seguros +
+    lanchaDeportiva +
+    shuttleBus +
     honorariosContables +
     sayco +
     pmsChanelManager +
@@ -394,6 +409,8 @@ export function calcularDesglose(params: {
     blancosLenceria,
     dotacionUniformes,
     seguros,
+    lanchaDeportiva,
+    shuttleBus,
     honorariosContables,
     sayco,
     pmsChanelManager,

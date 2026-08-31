@@ -79,6 +79,8 @@ function CostDistributionDonut({ desglose, moneda, tasaCambio }: { desglose: Des
     desglose.blancosLenceria +
     desglose.dotacionUniformes +
     desglose.seguros +
+    desglose.lanchaDeportiva +
+    desglose.shuttleBus +
     desglose.comisionPasarelaPagos +
     desglose.honorariosContables +
     desglose.sayco +

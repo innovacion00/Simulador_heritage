@@ -155,8 +155,8 @@ export const MARGEN_NETO: Record<Escenario, Record<Anio, number>> = {
   optimista: { 1: 0.4077, 2: 0.4077, 3: 0.4077 },
 };
 
-// Lavandería y Aseo — POR APARTAMENTO, $80.000/mes a 100% de ocupación para 1 hab; 2 hab =
-// 1 hab × 1.05. Ya NO varían por escenario mediante un recargo fijo (%); en vivo se escalan
+// Lavandería — POR APARTAMENTO, $80.000/mes a 100% de ocupación para 1 hab; 2 hab =
+// 1 hab × 1.05. No varía por escenario mediante un recargo fijo (%); en vivo se escala
 // por el % de ocupación del escenario/año, igual patrón que Energía/Agua/Gas: base
 // mensual[tipología] × % ocupación actual × 12 × N apartamentos, con inflación de costos por
 // año. Ej.: 1 hab en escenario Pesimista (55% ocupación) → $80.000 × 0.55 = $44.000/mes,
@@ -165,9 +165,14 @@ export const LAVANDERIA_BASE_MENSUAL: Record<Tipologia, number> = {
   "1hab": 80_000,
   "2hab": 80_000 * 1.05,
 };
+// Aseo — POR APARTAMENTO, $277.777/mes a 100% de ocupación para 1 hab; 2 hab = 1 hab × 1.05.
+// Mismo patrón que Lavandería: escala en vivo por el % de ocupación del escenario/año (base
+// mensual[tipología] × % ocupación actual × 12 × N apartamentos, con inflación de costos por
+// año). Ej.: 1 hab a 100% ocupación → $277.777/mes; a 50% ocupación → $138.888/mes (mitad,
+// lineal con la ocupación).
 export const ASEO_BASE_MENSUAL: Record<Tipologia, number> = {
-  "1hab": 80_000,
-  "2hab": 80_000 * 1.05,
+  "1hab": 277_777,
+  "2hab": 277_777 * 1.05,
 };
 
 // Amenities y Consumibles de Huésped — POR APARTAMENTO, misma fórmula que Aseo/Lavandería:
@@ -190,12 +195,33 @@ export const BLANCOS_LENCERIA_BASE_MENSUAL: Record<Tipologia, number> = {
   "2hab": 50_000 * 1.05,
 };
 
-// Dotación, Uniformes y Capacitación — POR APARTAMENTO, valor FIJO de $25.000/mes para
-// ambas tipologías (1 y 2 hab) y los 3 escenarios; NO escala por ocupación ni por tipología
-// (a diferencia de Aseo/Lavandería/Amenities/Blancos y Lencería). Años 2-3 se siguen
+// Dotación, Uniformes y Capacitación — fijo mensual POR APARTAMENTO, mismo patrón que Nómina
+// Prestacional. Fuente: cobro anual total de $57.000.000 para las 108 unidades del edificio →
+// $57.000.000 / 12 / 108 = valor mensual por apartamento; igual para ambas tipologías (1 y 2
+// hab) y los 3 escenarios; NO escala por ocupación ni por tipología (a diferencia de
+// Aseo/Lavandería/Amenities/Blancos y Lencería). Años 2-3 se siguen escalando igual que el
+// resto de partidas por apartamento (inflación 5%/año, INFLACION_COSTOS_ANUAL).
+export const DOTACION_UNIFORMES_TOTAL_ANUAL = 57_000_000;
+export const DOTACION_UNIFORMES_BASE_MENSUAL = DOTACION_UNIFORMES_TOTAL_ANUAL / 12 / UNIDADES_TOTALES;
+
+// Servicio de Lancha Deportiva — fijo mensual POR APARTAMENTO, mismo patrón que Dotación,
+// Uniformes y Capacitación / Nómina Prestacional. Fuente: cobro mensual total de $38.000.000
+// para las 108 unidades del edificio → $38.000.000 / 108 = valor mensual por apartamento; el
+// anual se obtiene multiplicando ese valor mensual × 12. Igual para ambas tipologías (1 y 2
+// hab) y los 3 escenarios; NO escala por ocupación ni por tipología. Años 2-3 se siguen
 // escalando igual que el resto de partidas por apartamento (inflación 5%/año,
 // INFLACION_COSTOS_ANUAL).
-export const DOTACION_UNIFORMES_BASE_MENSUAL = 25_000;
+export const LANCHA_DEPORTIVA_TOTAL_MENSUAL = 38_000_000;
+export const LANCHA_DEPORTIVA_BASE_MENSUAL = LANCHA_DEPORTIVA_TOTAL_MENSUAL / UNIDADES_TOTALES;
+
+// Shuttle Bus — fijo mensual POR APARTAMENTO, mismo patrón que Servicio de Lancha Deportiva /
+// Dotación, Uniformes y Capacitación. Fuente: cobro mensual total de $25.000.000 para las 108
+// unidades del edificio → $25.000.000 / 108 = valor mensual por apartamento; el anual se
+// obtiene multiplicando ese valor mensual × 12. Igual para ambas tipologías (1 y 2 hab) y los
+// 3 escenarios; NO escala por ocupación ni por tipología. Años 2-3 se siguen escalando igual
+// que el resto de partidas por apartamento (inflación 5%/año, INFLACION_COSTOS_ANUAL).
+export const SHUTTLE_BUS_TOTAL_MENSUAL = 25_000_000;
+export const SHUTTLE_BUS_BASE_MENSUAL = SHUTTLE_BUS_TOTAL_MENSUAL / UNIDADES_TOTALES;
 
 // Seguros (Todo Riesgo Contenido + RC Hotelera) — POR APARTAMENTO, valor FIJO de $45.000/mes
 // para ambas tipologías (1 y 2 hab) y los 3 escenarios; NO escala por ocupación ni por
